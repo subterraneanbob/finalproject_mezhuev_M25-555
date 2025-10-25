@@ -105,3 +105,87 @@ class User:
             bool: True, если пароль верный, иначе False.
         """
         return self._hashed_password == get_hashed_password(password, self._salt)
+
+
+class Wallet:
+    """
+    Кошелёк пользователя для одной конкретной валюты.
+
+    Attributes:
+        currency_code (str): Код валюты (например, "USD" или "BTC").
+        balance (float, optional): Баланс в данной валюте (по умолчанию 0.0).
+    """
+
+    def __init__(self, currency_code: str, balance: float = 0.0):
+        self.currency_code = currency_code
+        self.balance = balance
+
+    @staticmethod
+    def _raise_if_not_positive(amount: float):
+        if amount <= 0:
+            raise ValueError("Сумма снятия должна быть положительной.")
+
+    @property
+    def balance(self) -> float:
+        """float: Текущий баланс."""
+        return self._balance
+
+    @balance.setter
+    def balance(self, value: float | int):
+        """Изменяет баланс пользователя.
+
+        Args:
+            value (float or int): Новое значения баланса (должно быть неотрицательным).
+
+        Raises:
+            TypeError: Если новое значение не типа float или int.
+            ValueError: Если баланс отрицательный.
+        """
+
+        if not isinstance(value, (float, int)):
+            raise TypeError("Передан неверный тип данных, ожидается int или float.")
+
+        new_balance = float(value)
+
+        if new_balance < 0.0:
+            raise ValueError("Баланс не может быть отрицательным.")
+
+        self._balance = new_balance
+
+    def deposit(self, amount: float):
+        """
+        Пополняет баланс на указанную сумму.
+
+        Args:
+            amount (float): Сумма пополнения.
+
+        Raises:
+            ValueError: Если сумма пополнения не положительная.
+        """
+        Wallet._raise_if_not_positive(amount)
+
+        self._balance += amount
+
+    def withdraw(self, amount: float):
+        """
+        Снимает средства, если позволяет баланс.
+
+        Args:
+            amount (float): Сумма снятия.
+
+        Raises:
+            ValueError: Если сумма снятия не положительная или превышает текущий
+            баланс.
+        """
+        Wallet._raise_if_not_positive(amount)
+
+        if amount > self._balance:
+            raise ValueError("Сумма снятия превышает баланс.")
+
+        self._balance -= amount
+
+    def get_balance_info(self):
+        """
+        Выводит информацию о текущем балансе.
+        """
+        print(f"Текущий баланс {self.currency_code}: {self.balance:.2f}")
