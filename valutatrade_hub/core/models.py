@@ -226,3 +226,222 @@ class Wallet:
         Выводит информацию о текущем балансе.
         """
         print(f"Текущий баланс {self.currency_code}: {self.balance:.2f}")
+
+
+@dataclass
+class ExchangeRate:
+    """
+    Курс обмена валют, актуальный для определённого времени.
+
+    Attributes:
+        from_currency (str): Код валюты, которую нужно конвертировать.
+        to_currency (str): Код валюты, в которую происходит конвертация.
+        rate (float): Курс обмена валюты.
+        updated_at (datetime): Время последнего обновления курса.
+    """
+
+    from_currency: str
+    to_currency: str
+    rate: float
+    updated_at: datetime
+
+    def reciprocal(self):
+        """
+        Возвращает новый объект типа ExchangeRate, который представляет курс
+        обмена валюты, обратный этому.
+        """
+        new_rate = 1 / self.rate if self.rate else 0.0
+        return ExchangeRate(
+            self.to_currency,
+            self.from_currency,
+            new_rate,
+            self.updated_at,
+        )
+
+
+class ExchangeRates:
+    """
+    Доступные курсы обмена валют.
+
+    Attributes:
+        source (str): Кто обновил данные.
+        last_refresh (datetime): Время последнего обновления курсов.
+    """
+
+    DATA_FILE_PATH = "data/rates.json"
+    _SOURCE = "source"
+    _LAST_REFRESH = "last_refresh"
+    _RATE = "rate"
+    _UPDATED_AT = "updated_at"
+
+    def __init__(
+        self,
+        source: str,
+        last_refresh: datetime,
+        rates: dict[tuple[str, str], ExchangeRate],
+    ):
+        self.source = source
+        self.last_refresh = last_refresh
+        self._rates = rates
+
+    @classmethod
+    def load(cls, file_path: str = DATA_FILE_PATH):
+        """
+        Загружает курсы валют из файла.
+
+        Args:
+            file_path (str, optional): Путь к файлу с курсами валют.
+        """
+
+        def decode_rates(dct):
+            if cls._RATE in dct and cls._UPDATED_AT in dct:
+                rate = dct[cls._RATE]
+                updated_at = datetime.fromisoformat(dct[cls._UPDATED_AT])
+                return ExchangeRate("", "", rate, updated_at)
+
+            source = dct.pop(cls._SOURCE)
+            last_refresh = dct.pop(cls._LAST_REFRESH)
+            last_refresh = datetime.fromisoformat(last_refresh)
+
+            rates = {}
+            for key, exchange_rate in dct.items():
+                currency_pair = tuple(key.split("_", maxsplit=1))
+                exchange_rate.from_currency, exchange_rate.to_currency = currency_pair
+                rates[currency_pair] = exchange_rate
+                rates[currency_pair[::-1]] = exchange_rate.reciprocal()
+
+            return cls(source, last_refresh, rates)
+
+        with open(file_path, "r", encoding="utf-8") as json_file:
+            return json.load(json_file, object_hook=decode_rates)
+
+    def get_exchange_rate(self, from_currency: str, to_currency: str) -> float:
+        """
+        Возвращает курс обмена для валютной пары.
+
+        Args:
+            from_currency (str): Код валюты, которую нужно конвертировать.
+            to_currency (str): Код валюты, в которую происходит конвертация.
+
+        Returns:
+            float: Актуальный курс обмена.
+        """
+        exchange_rate = self._rates[(from_currency, to_currency)]
+        return exchange_rate.rate
+
+
+class Portfolio:
+    """
+    Портфель кошельков пользователя.
+
+    Attributes:
+        user_id (int): Уникальный номер пользователя
+        wallets (dict): Словарь кошельков, где ключ - код валюты, а значение - объект
+        класса Wallet.
+    """
+
+    DATA_FILE_PATH = "data/portfolios.json"
+    _WALLETS = "wallets"
+    _CURRENCY_CODE = "currency_code"
+    _BALANCE = "balance"
+    _USER_ID = "user_id"
+
+    def __init__(self, user_id: int, wallets: dict[str, Wallet]):
+        self._user_id = user_id
+        self._wallets = wallets
+
+    @classmethod
+    def load(cls, file_path: str = DATA_FILE_PATH):
+        """
+        Загружает данные о портфелях всех пользователей из файла.
+
+        Args:
+            file_path (str, optional): Путь к файлу с портфелям.
+        """
+
+        def decode_portfolio(dct):
+            if cls._BALANCE in dct and cls._CURRENCY_CODE in dct:
+                return Wallet(dct[cls._CURRENCY_CODE], dct[cls._BALANCE])
+            elif cls._USER_ID in dct:
+                return cls(**dct)
+            else:
+                return dct
+
+        with open(file_path, "r", encoding="utf-8") as json_file:
+            return json.load(json_file, object_hook=decode_portfolio)
+
+    @classmethod
+    def find(cls, user_id: int, file_path: str = DATA_FILE_PATH):
+        """
+        Загружает данные о портфеле пользователя по его указанному номеру из файла..
+
+        Args:
+            key (int or str): Номер пользователя.
+            file_path (str, optional): Путь к файлу с данными пользователей.
+        """
+        for portfolio in cls.load(file_path):
+            if portfolio._user_id == user_id:
+                return portfolio
+        raise KeyError("Портфель не найден.")
+
+    @property
+    def user(self) -> User:
+        """User: Возвращает объект пользователя."""
+        return User.find(self._user_id)
+
+    @property
+    def wallets(self) -> dict[str, Wallet]:
+        """dict[str, Wallet]: Возвращает копию словаря кошельков."""
+        return deepcopy(self._wallets)
+
+    def add_currency(self, currency_code: str):
+        """
+        Добавляет новый кошелёк в портфель (если его ещё нет).
+
+        Args:
+            currency_code (str): Код валюты (например, "USD" или "BTC").
+        """
+        if not currency_code:
+            raise ValueError("Неверный код валюты.")
+
+        new_wallet = Wallet(currency_code)
+        self._wallets.setdefault(currency_code, new_wallet)
+
+    def get_total_value(
+        self, exchange_rates: ExchangeRates, base_currency: str = "USD"
+    ) -> float:
+        """
+        Подсчитывает полную стоимость портфеля в указанной базовой валюте с
+        использованием курсов валют.
+
+        Args:
+            exchange_rates (dict): Курсы валют
+            base_currency (str): Базовая валюта
+
+        Returns:
+            float: Полная стоимость портфеля в базовой валюте.
+        """
+        total = 0.0
+        for wallet in self._wallets.values():
+            if wallet.currency_code == base_currency:
+                total += wallet.balance
+            else:
+                exchange_rate = exchange_rates.get_exchange_rate(
+                    wallet.currency_code, base_currency
+                )
+                total += wallet.balance * exchange_rate
+
+        return total
+
+    def get_wallet(self, currency_code: str) -> Wallet:
+        """
+        Возвращает объект класса Wallet по коду валюты.
+
+        Args:
+            currency_code (str): Код валюты.
+
+        Returns:
+            Wallet: Кошелёк для заданной валюты - объект Wallet.
+
+        """
+        return self._wallets[currency_code]
