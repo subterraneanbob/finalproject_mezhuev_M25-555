@@ -1,3 +1,6 @@
+import json
+from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 
 from .utils import get_hashed_password
@@ -16,6 +19,8 @@ class User:
     """
 
     MIN_PASSWORD_LEN = 4
+    DATA_FILE_PATH = "data/users.json"
+    _REG_DATE = "registration_date"
 
     def __init__(
         self,
@@ -30,6 +35,38 @@ class User:
         self._hashed_password = hashed_password
         self._salt = salt
         self._registration_date = registration_date
+
+    @classmethod
+    def load(cls, file_path: str = DATA_FILE_PATH):
+        """
+        Загружает данные всех пользователей из файла.
+
+        Args:
+            file_path (str, optional): Путь к файлу с данными пользователей.
+        """
+
+        def decode_user(dct):
+            dct[cls._REG_DATE] = datetime.fromisoformat(dct[cls._REG_DATE])
+            return cls(**dct)
+
+        with open(file_path, "r", encoding="utf-8") as json_file:
+            return json.load(json_file, object_hook=decode_user)
+
+    @classmethod
+    def find(cls, key: int | str, file_path: str = DATA_FILE_PATH):
+        """
+        Загружает данные пользователя из файла по уникальному ключу:
+        по имени пользователя или по его номеру.
+
+        Args:
+            key (int or str): Ключ для идентификации пользователя. Для выбора по
+            номеру пользователя нужно передать int, по имени пользователя - str.
+            file_path (str, optional): Путь к файлу с данными пользователей.
+        """
+        for user in cls.load(file_path):
+            if user.user_id == key or user.username == key:
+                return user
+        raise KeyError("Пользователь не найден.")
 
     @property
     def user_id(self) -> int:
