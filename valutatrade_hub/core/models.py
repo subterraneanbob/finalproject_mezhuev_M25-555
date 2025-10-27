@@ -36,7 +36,7 @@ class User:
         self._registration_date = registration_date
 
     @classmethod
-    def load(cls, file_path: str = DATA_FILE_PATH):
+    def load(cls, file_path: str = DATA_FILE_PATH) -> list:
         """
         Загружает данные всех пользователей из файла.
 
@@ -54,6 +54,34 @@ class User:
 
         with open(file_path, "r", encoding="utf-8") as json_file:
             return json.load(json_file, object_hook=decode_user)
+
+    @classmethod
+    def save(cls, users: list, file_path: str = DATA_FILE_PATH):
+        """
+        Сохраняет данные всех пользователей в файл.
+
+        Args:
+            users (list): Список пользователей типа `User`, который будет сохранён.
+            file_path (str, optional): Путь к файлу с данными пользователей.
+        """
+
+        def encode_user(obj):
+            match obj:
+                case User():
+                    return {
+                        "user_id": obj.user_id,
+                        "username": obj.username,
+                        "hashed_password": obj.hashed_password,
+                        "salt": obj.salt,
+                        "registration_date": obj.registration_date.isoformat(),
+                    }
+                case _:
+                    return obj
+
+        with open(file_path, "w", encoding="utf-8") as json_file:
+            json.dump(
+                users, json_file, default=encode_user, ensure_ascii=False, indent=4
+            )
 
     @classmethod
     def find(cls, key: int | str, file_path: str = DATA_FILE_PATH):

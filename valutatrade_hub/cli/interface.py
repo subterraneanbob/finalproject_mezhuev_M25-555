@@ -1,5 +1,8 @@
 import shlex
 
+from ..core.exceptions import PasswordTooShortError, UsernameTakenError
+from ..core.usecases import register_user
+
 _QUIT = "quit"  # Команда для выхода
 
 
@@ -42,5 +45,10 @@ def run():
     """
     while (command := get_command()) != _QUIT:
         match parse_command(command):
+            case ["register", "--username", username, "--password", password]:
+                try:
+                    register_user(username, password)
+                except (UsernameTakenError, PasswordTooShortError) as e:
+                    print(e)
             case _:
                 print("Неверная команда. Попробуйте снова.")
