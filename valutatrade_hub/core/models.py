@@ -3,6 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 
+from .exceptions import IncorrectPasswordError, UserNotFoundError
 from .utils import get_hashed_password
 
 
@@ -93,11 +94,13 @@ class User:
             key (int or str): Ключ для идентификации пользователя. Для выбора по
             номеру пользователя нужно передать int, по имени пользователя - str.
             file_path (str, optional): Путь к файлу с данными пользователей.
+        Raises:
+            UserNotFoundError: Если пользователь не найден.
         """
         for user in cls.load(file_path):
             if user.user_id == key or user.username == key:
                 return user
-        raise KeyError("Пользователь не найден.")
+        raise UserNotFoundError(str(key))
 
     @property
     def user_id(self) -> int:
@@ -163,16 +166,19 @@ class User:
 
         self._hashed_password = get_hashed_password(new_password, self._salt)
 
-    def verify_password(self, password: str) -> bool:
+    def verify_password(self, password: str):
         """
         Проверяет, верный ли передан пароль.
 
         Args:
             password (str): Пароль для проверки.
-        Returns:
-            bool: True, если пароль верный, иначе False.
+
+        Raises:
+            IncorrectPasswordError: Если неверный пароль.
         """
-        return self._hashed_password == get_hashed_password(password, self._salt)
+
+        if self._hashed_password != get_hashed_password(password, self._salt):
+            raise IncorrectPasswordError
 
 
 class Wallet:

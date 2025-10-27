@@ -1,7 +1,12 @@
 import shlex
 
-from ..core.exceptions import PasswordTooShortError, UsernameTakenError
-from ..core.usecases import register_user
+from ..core.exceptions import (
+    IncorrectPasswordError,
+    PasswordTooShortError,
+    UsernameTakenError,
+    UserNotFoundError,
+)
+from ..core.usecases import login, register_user
 
 _QUIT = "quit"  # Команда для выхода
 
@@ -49,6 +54,12 @@ def run():
                 try:
                     register_user(username, password)
                 except (UsernameTakenError, PasswordTooShortError) as e:
+                    print(e)
+            case ["login", "--username", username, "--password", password]:
+                try:
+                    login(username, password)
+                    print(f"Вы вошли как '{username}'.")
+                except (UserNotFoundError, IncorrectPasswordError) as e:
                     print(e)
             case _:
                 print("Неверная команда. Попробуйте снова.")
