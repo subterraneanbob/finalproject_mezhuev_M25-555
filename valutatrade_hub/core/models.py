@@ -416,6 +416,41 @@ class Portfolio:
                 return portfolio
         raise KeyError("Портфель не найден.")
 
+    @classmethod
+    def save(cls, portfolios: list, file_path: str = DATA_FILE_PATH):
+        """
+        Сохраняет данные о всех портфелях в файл.
+
+        Args:
+            portfolios (list): Список портфелей типа `Portfolio`, который будет
+            сохранён.
+            file_path (str, optional): Путь к файлу с данными пользователей.
+        """
+
+        def encode_portfolio(obj):
+            match obj:
+                case Portfolio():
+                    return {
+                        "user_id": obj._user_id,
+                        "wallets": obj._wallets,
+                    }
+                case Wallet():
+                    return {
+                        "currency_code": obj.currency_code,
+                        "balance": obj.balance,
+                    }
+                case _:
+                    return obj
+
+        with open(file_path, "w", encoding="utf-8") as json_file:
+            json.dump(
+                portfolios,
+                json_file,
+                default=encode_portfolio,
+                ensure_ascii=False,
+                indent=4,
+            )
+
     @property
     def user(self) -> User:
         """User: Возвращает объект пользователя."""

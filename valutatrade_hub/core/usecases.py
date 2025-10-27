@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from .exceptions import PasswordTooShortError, UsernameTakenError
-from .models import User
+from .models import Portfolio, User
 from .utils import generate_salt, get_hashed_password
 
 
@@ -66,6 +66,10 @@ def register_user(username: str, password: str) -> int:
 
     new_user = User(user_id, username, hashed_password, salt, registration_date)
     users.append(new_user)
+
+    portfolios = Portfolio.load()
+    portfolios.append(Portfolio(user_id, {}))
+    Portfolio.save(portfolios)
 
     User.save(users)
 
