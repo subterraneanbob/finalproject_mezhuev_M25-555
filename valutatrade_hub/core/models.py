@@ -3,7 +3,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 
-from .exceptions import IncorrectPasswordError, UserNotFoundError
+from .exceptions import IncorrectPasswordError, PasswordTooShortError, UserNotFoundError
 from .utils import get_hashed_password
 
 
@@ -158,11 +158,12 @@ class User:
 
         Args:
             new_password (str): Новый пароль.
+
+        Raises:
+            PasswordTooShortError: Если пароль слишком короткий.
         """
         if not new_password or len(new_password) < User.MIN_PASSWORD_LEN:
-            raise ValueError(
-                f"Пароль должен быть не короче {User.MIN_PASSWORD_LEN} символов."
-            )
+            raise PasswordTooShortError(User.MIN_PASSWORD_LEN)
 
         self._hashed_password = get_hashed_password(new_password, self._salt)
 

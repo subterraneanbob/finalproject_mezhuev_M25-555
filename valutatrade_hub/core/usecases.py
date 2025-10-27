@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from .exceptions import PasswordTooShortError, UsernameTakenError
+from .exceptions import UsernameTakenError
 from .models import Portfolio, User
-from .utils import generate_salt, get_hashed_password
+from .utils import generate_salt
 
 
 class UserSession:
@@ -56,15 +56,13 @@ def register_user(username: str, password: str) -> int:
     if any(user.username == username for user in users):
         raise UsernameTakenError(username)
 
-    if len(password) < User.MIN_PASSWORD_LEN:
-        raise PasswordTooShortError(User.MIN_PASSWORD_LEN)
-
     user_id = max([user.user_id for user in users], default=0) + 1
     salt = generate_salt()
-    hashed_password = get_hashed_password(password, salt)
     registration_date = datetime.now()
 
-    new_user = User(user_id, username, hashed_password, salt, registration_date)
+    new_user = User(user_id, username, "", salt, registration_date)
+    new_user.change_password(password)
+
     users.append(new_user)
 
     portfolios = Portfolio.load()
