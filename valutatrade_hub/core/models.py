@@ -20,7 +20,6 @@ class User:
 
     MIN_PASSWORD_LEN = 4
     DATA_FILE_PATH = "data/users.json"
-    _REG_DATE = "registration_date"
 
     def __init__(
         self,
@@ -46,8 +45,12 @@ class User:
         """
 
         def decode_user(dct):
-            dct[cls._REG_DATE] = datetime.fromisoformat(dct[cls._REG_DATE])
-            return cls(**dct)
+            match dct:
+                case {"registration_date": reg_date, **args}:
+                    reg_date = datetime.fromisoformat(reg_date)
+                    return cls(registration_date=reg_date, **args)
+                case _:
+                    return cls(**dct)
 
         with open(file_path, "r", encoding="utf-8") as json_file:
             return json.load(json_file, object_hook=decode_user)
@@ -269,10 +272,6 @@ class ExchangeRates:
     """
 
     DATA_FILE_PATH = "data/rates.json"
-    _SOURCE = "source"
-    _LAST_REFRESH = "last_refresh"
-    _RATE = "rate"
-    _UPDATED_AT = "updated_at"
 
     def __init__(
         self,
@@ -294,23 +293,25 @@ class ExchangeRates:
         """
 
         def decode_rates(dct):
-            if cls._RATE in dct and cls._UPDATED_AT in dct:
-                rate = dct[cls._RATE]
-                updated_at = datetime.fromisoformat(dct[cls._UPDATED_AT])
-                return ExchangeRate("", "", rate, updated_at)
+            match dct:
+                case {"rate": rate, "updated_at": updated_at}:
+                    updated_at = datetime.fromisoformat(updated_at)
+                    # Валюты задаются позже при распаковке ключа
+                    return ExchangeRate("", "", rate, updated_at)
+                case {"source": source, "last_refresh": last_refresh, **rates_data}:
+                    last_refresh = datetime.fromisoformat(last_refresh)
+                    rates = {}
 
-            source = dct.pop(cls._SOURCE)
-            last_refresh = dct.pop(cls._LAST_REFRESH)
-            last_refresh = datetime.fromisoformat(last_refresh)
+                    for key, exchange_rate in rates_data.items():
+                        currency_pair = tuple(key.split("_", maxsplit=1))
+                        exchange_rate.from_currency = currency_pair[0]
+                        exchange_rate.to_currency = currency_pair[1]
+                        rates[currency_pair] = exchange_rate
+                        rates[currency_pair[::-1]] = exchange_rate.reciprocal()
 
-            rates = {}
-            for key, exchange_rate in dct.items():
-                currency_pair = tuple(key.split("_", maxsplit=1))
-                exchange_rate.from_currency, exchange_rate.to_currency = currency_pair
-                rates[currency_pair] = exchange_rate
-                rates[currency_pair[::-1]] = exchange_rate.reciprocal()
-
-            return cls(source, last_refresh, rates)
+                    return cls(source, last_refresh, rates)
+                case _:
+                    return dct
 
         with open(file_path, "r", encoding="utf-8") as json_file:
             return json.load(json_file, object_hook=decode_rates)
@@ -341,10 +342,6 @@ class Portfolio:
     """
 
     DATA_FILE_PATH = "data/portfolios.json"
-    _WALLETS = "wallets"
-    _CURRENCY_CODE = "currency_code"
-    _BALANCE = "balance"
-    _USER_ID = "user_id"
 
     def __init__(self, user_id: int, wallets: dict[str, Wallet]):
         self._user_id = user_id
@@ -360,12 +357,13 @@ class Portfolio:
         """
 
         def decode_portfolio(dct):
-            if cls._BALANCE in dct and cls._CURRENCY_CODE in dct:
-                return Wallet(dct[cls._CURRENCY_CODE], dct[cls._BALANCE])
-            elif cls._USER_ID in dct:
-                return cls(**dct)
-            else:
-                return dct
+            match dct:
+                case {"currency_code": currency_code, "balance": balance}:
+                    return Wallet(currency_code, balance)
+                case {"user_id": user_id, "wallets": wallets}:
+                    return cls(user_id, wallets)
+                case _:
+                    return dct
 
         with open(file_path, "r", encoding="utf-8") as json_file:
             return json.load(json_file, object_hook=decode_portfolio)
