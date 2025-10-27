@@ -36,7 +36,7 @@ class UserSession:
         return self._principal
 
 
-def register_user(username: str, password: str):
+def register_user(username: str, password: str) -> int:
     """
     Регистрирует нового пользователя в системе.
 
@@ -47,6 +47,9 @@ def register_user(username: str, password: str):
     Raises:
         UsernameTakenError: Если имя пользователя занято.
         PasswordTooShortError: Если пароль слишком короткий.
+
+    Returns:
+        int: Уникальный номер пользователя.
     """
     users = User.load()
 
@@ -65,6 +68,8 @@ def register_user(username: str, password: str):
     users.append(new_user)
 
     User.save(users)
+
+    return user_id
 
 
 def login(username: str, password: str):
