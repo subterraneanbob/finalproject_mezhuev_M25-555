@@ -44,6 +44,14 @@ class UserSession:
         return self._principal
 
 
+def _check_amount(amount: float):
+    """
+    Проверяет, является ли сумма положительной.
+    """
+    if amount <= 0:
+        raise AmountIsNotPositiveError("amount")
+
+
 def _check_auth() -> User:
     """
     Проверяет, авторизован ли пользователь.
@@ -68,11 +76,20 @@ def _deposit_base_currency(wallet: Wallet, amount: float):
     after_amount = wallet.balance
 
     print(f"Пополнение: {format_currency(amount)} {currency}.")
-    print("Изменения в портфеле:")
-    print(
-        f"- {currency}: было {format_currency(before_amount)}"
-        f" -> стало {format_currency(after_amount)}"
-    )
+    _print_portfolio_changes((currency, before_amount, after_amount, 0, 0))
+
+
+def _withdraw_base_currency(wallet: Wallet, amount: float):
+    """
+    Выводит валюту из кошелька с базовой валютой и печатает результат.
+    """
+    currency = wallet.currency_code
+    before_amount = wallet.balance
+    wallet.withdraw(amount)
+    after_amount = wallet.balance
+
+    print(f"Снятие: {format_currency(amount)} {currency}.")
+    _print_portfolio_changes((currency, before_amount, after_amount, 0, 0))
 
 
 def _buy_currency(
@@ -102,20 +119,86 @@ def _buy_currency(
         f"Покупка выполнена: {format_currency(amount)} {currency} "
         f"по курсу {format_exchange_rate(rate)} {base_currency}/{currency}."
     )
-    print("Изменения в портфеле:")
-    print(
-        f"- {currency}: было "
-        f"{format_currency(before_amount, width=max_width_before)}"
-        " -> стало "
-        f"{format_currency(after_amount, width=max_width_after)}"
-    )
-    print(
-        f"- {base_currency}: было "
-        f"{format_currency(before_amount_bc, width=max_width_before)}"
-        " -> стало "
-        f"{format_currency(after_amount_bc, width=max_width_after)}"
+    _print_portfolio_changes(
+        (
+            currency,
+            before_amount,
+            after_amount,
+            max_width_before,
+            max_width_after,
+        ),
+        (
+            base_currency,
+            before_amount_bc,
+            after_amount_bc,
+            max_width_before,
+            max_width_after,
+        ),
     )
     print(f"Оценочная стоимость покупки: {format_currency(amount_bc)} {base_currency}")
+
+
+def _sell_currency(
+    wallet: Wallet,
+    amount: float,
+    wallet_bc: Wallet,
+    amount_bc: float,
+    rate: float,
+):
+    """
+    Продаёт валюту на указанную сумму, расплачиваясь базовой валютой по указанному
+    курсу обмена, и печатает результат.
+    """
+    currency = wallet.currency_code
+    base_currency = wallet_bc.currency_code
+    before_amount, before_amount_bc = wallet.balance, wallet_bc.balance
+
+    wallet.withdraw(amount)
+    wallet_bc.deposit(amount_bc)
+
+    after_amount, after_amount_bc = wallet.balance, wallet_bc.balance
+
+    max_width_before = int(AmountMaxWidth((before_amount, before_amount_bc)))
+    max_width_after = int(AmountMaxWidth((after_amount, after_amount_bc)))
+
+    print(
+        f"Продажа выполнена: {format_currency(amount)} {currency} "
+        f"по курсу {format_exchange_rate(rate)} {base_currency}/{currency}."
+    )
+    _print_portfolio_changes(
+        (
+            currency,
+            before_amount,
+            after_amount,
+            max_width_before,
+            max_width_after,
+        ),
+        (
+            base_currency,
+            before_amount_bc,
+            after_amount_bc,
+            max_width_before,
+            max_width_after,
+        ),
+    )
+    print(f"Оценочная выручка: {format_currency(amount_bc)} {base_currency}")
+
+
+def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
+    """
+    Печатает изменения, которые произошли в кошельках после операции.
+    """
+    if not args:
+        return
+
+    print("Изменения в портфеле:")
+    for currency, before, after, max_width_before, max_width_after in args:
+        print(
+            f"- {currency}: было "
+            f"{format_currency(before, width=max_width_before)}"
+            " -> стало "
+            f"{format_currency(after, width=max_width_after)}"
+        )
 
 
 def register_user(username: str, password: str) -> int:
@@ -248,9 +331,7 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
 
-    if amount <= 0:
-        raise AmountIsNotPositiveError("amount")
-
+    _check_amount(amount)
     user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
@@ -271,5 +352,45 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
         amount_bc = amount * rate
 
         _buy_currency(wallet, amount, wallet_bc, amount_bc, rate)
+
+    Portfolio.save(portfolios)
+
+
+def sell(currency: str, amount: float, base_currency: str = "USD"):
+    """
+    Продаёт указанное количество валюты. Если указана базовая валюта в качестве
+    валюты покупки, тогда списывает сумму с баланса кошелька с базовой валютой.
+
+    Args:
+        currency (str): Код валюты, в которой совершается покупка.
+        amount (float): Количество покупаемой валюты.
+        base_currency (str, optional): Базовая валюта.
+
+    Raises:
+        AmountIsNegativeError: Если отрицательная сумма покупки.
+        UnauthorizedError: Если пользователь не залогинен.
+        InvalidCurrencyError: Если указана неизвестная валюта.
+        ExchangeRateUnavailableError: Если недоступен курс обмена валют.
+    """
+
+    _check_amount(amount)
+    user = _check_auth()
+
+    exchange_rates = ExchangeRates.load()
+    rate = exchange_rates.get_exchange_rate(currency, base_currency)
+
+    portfolios = Portfolio.load()
+    portfolio = Portfolio.find(user.user_id, portfolios)
+    wallet = portfolio.get_wallet(currency)
+
+    if currency == base_currency:
+        # Вывод с кошелька
+        _withdraw_base_currency(wallet, amount)
+    else:
+        # Продажа валюты
+        wallet_bc = portfolio.get_wallet(base_currency)
+        amount_bc = amount * rate
+
+        _sell_currency(wallet, amount, wallet_bc, amount_bc, rate)
 
     Portfolio.save(portfolios)

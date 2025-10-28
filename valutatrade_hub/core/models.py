@@ -10,6 +10,7 @@ from .exceptions import (
     InvalidCurrencyError,
     PasswordTooShortError,
     UserNotFoundError,
+    WalletNotFound,
 )
 from .utils import get_hashed_password
 
@@ -262,7 +263,7 @@ class Wallet:
         Wallet._raise_if_not_positive(amount)
 
         if amount > self._balance:
-            raise InsufficientFundsError(self.currency_code)
+            raise InsufficientFundsError(self.currency_code, self._balance, amount)
 
         self._balance -= amount
 
@@ -542,4 +543,7 @@ class Portfolio:
             Wallet: Кошелёк для заданной валюты - объект Wallet.
 
         """
+        if currency_code not in self._wallets:
+            raise WalletNotFound(currency_code)
+
         return self._wallets[currency_code]

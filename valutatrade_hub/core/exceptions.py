@@ -1,3 +1,6 @@
+from .utils import format_currency
+
+
 class UserError(Exception):
     pass
 
@@ -52,5 +55,19 @@ class AmountIsNotPositiveError(UserError):
 
 
 class InsufficientFundsError(UserError):
+    def __init__(self, currency: str, available: float, required: float):
+        message = (
+            "Недостаточно средств: "
+            f"доступно {format_currency(available)} {currency}, "
+            f"требуется {format_currency(required)} {currency}"
+        )
+        super().__init__(message)
+
+
+class WalletNotFound(UserError):
     def __init__(self, currency: str):
-        super().__init__(f"Недостаточно средств ({currency}).")
+        message = (
+            f"У вас нет кошелька '{currency}'. Добавьте валюту: "
+            "она создаётся автоматически при первой покупке."
+        )
+        super().__init__(message)
