@@ -1,8 +1,10 @@
+import re
 from datetime import datetime
 
 from .exceptions import (
     AmountIsNotPositiveError,
     InvalidBaseCurrencyError,
+    InvalidCurrencyCode,
     UnauthorizedError,
     UsernameTakenError,
 )
@@ -13,6 +15,8 @@ from .utils import (
     format_exchange_rate,
     generate_salt,
 )
+
+_CURRENCY_CODE_REGEX = re.compile(r"^[A-Z]{3}$")
 
 
 class UserSession:
@@ -50,6 +54,14 @@ def _check_amount(amount: float):
     """
     if amount <= 0:
         raise AmountIsNotPositiveError("amount")
+
+
+def _check_currency(currency: str):
+    """
+    Проверяет, является ли код валюты корректным.
+    """
+    if not _CURRENCY_CODE_REGEX.match(currency):
+        raise InvalidCurrencyCode(currency)
 
 
 def _check_auth() -> User:
@@ -296,7 +308,7 @@ def show_portfolio(base_currency: str = "USD"):
     for currency, wallet in wallets.items():
         balance = wallet.balance
         exchange_rate = exchange_rates.get_exchange_rate(currency, base_currency)
-        balance_bс = balance * exchange_rate
+        balance_bс = balance * float(exchange_rate)
         max_width.update(balance)
         max_width_bc.update(balance_bс)
         balances_by_wallet.append((currency, balance, balance_bс))
@@ -335,7 +347,7 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
     user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
-    rate = exchange_rates.get_exchange_rate(currency, base_currency)
+    rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
 
     portfolios = Portfolio.load()
     portfolio = Portfolio.find(user.user_id, portfolios)
@@ -377,7 +389,7 @@ def sell(currency: str, amount: float, base_currency: str = "USD"):
     user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
-    rate = exchange_rates.get_exchange_rate(currency, base_currency)
+    rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
 
     portfolios = Portfolio.load()
     portfolio = Portfolio.find(user.user_id, portfolios)
@@ -394,3 +406,32 @@ def sell(currency: str, amount: float, base_currency: str = "USD"):
         _sell_currency(wallet, amount, wallet_bc, amount_bc, rate)
 
     Portfolio.save(portfolios)
+
+
+def get_rate(from_currency: str, to_currency: str):
+    """
+    Получает текущий курс обмена одной валюты на другую.
+
+    Args:
+        from_currency (str): Код исходной валюты.
+        to_currency (str): Код целевой валюты.
+    """
+    _check_currency(from_currency)
+    _check_currency(to_currency)
+
+    exchange_rates = ExchangeRates.load()
+    exchange_rate = exchange_rates.get_exchange_rate(from_currency, to_currency)
+
+    rate = float(exchange_rate)
+    reciprocal_rate = float(exchange_rate.reciprocal())
+    updated_at = exchange_rate.updated_at
+
+    print(
+        f"Курс {from_currency}->{to_currency}: {format_exchange_rate(rate)} "
+        f"(обновлено: {updated_at:%Y-%m-%d %H:%M:%S})"
+    )
+
+    print(
+        f"Обратный курс {to_currency}->{from_currency}: "
+        f"{format_exchange_rate(reciprocal_rate)}"
+    )

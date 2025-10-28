@@ -1,7 +1,14 @@
 import shlex
 
 from ..core.exceptions import UserError
-from ..core.usecases import buy, login, register_user, sell, show_portfolio
+from ..core.usecases import (
+    buy,
+    get_rate,
+    login,
+    register_user,
+    sell,
+    show_portfolio,
+)
 
 _QUIT = "quit"  # Команда для выхода
 
@@ -62,6 +69,8 @@ def handle_command(command: str):
         case ["sell", "--currency", currency, "--amount", amount_str]:
             if (amount := _parse_amount(amount_str)) is not None:
                 sell(currency, amount)
+        case ["get-rate", "--from", from_currency, "--to", to_currency]:
+            get_rate(from_currency, to_currency)
         case _:
             print("Неверная команда. Попробуйте снова.")
 

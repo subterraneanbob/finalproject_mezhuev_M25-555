@@ -304,6 +304,9 @@ class ExchangeRate:
             self.updated_at,
         )
 
+    def __float__(self) -> float:
+        return self.rate
+
 
 class ExchangeRates:
     """
@@ -365,7 +368,7 @@ class ExchangeRates:
         """frozenset[str]: Множество доступных кодов валют."""
         return self._currencies.copy()
 
-    def get_exchange_rate(self, from_currency: str, to_currency: str) -> float:
+    def get_exchange_rate(self, from_currency: str, to_currency: str) -> ExchangeRate:
         """
         Возвращает курс обмена для валютной пары.
 
@@ -387,13 +390,13 @@ class ExchangeRates:
             raise InvalidCurrencyError(to_currency)
 
         if from_currency == to_currency:
-            return 1.0
+            return ExchangeRate(from_currency, from_currency, 1.0, datetime.now())
 
         if (from_currency, to_currency) not in self._rates:
             raise ExchangeRateUnavailableError(from_currency, to_currency)
 
         exchange_rate = self._rates[(from_currency, to_currency)]
-        return exchange_rate.rate
+        return exchange_rate
 
 
 class Portfolio:
@@ -528,7 +531,7 @@ class Portfolio:
                 exchange_rate = exchange_rates.get_exchange_rate(
                     wallet.currency_code, base_currency
                 )
-                total += wallet.balance * exchange_rate
+                total += wallet.balance * float(exchange_rate)
 
         return total
 

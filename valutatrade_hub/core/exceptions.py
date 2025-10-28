@@ -54,6 +54,11 @@ class AmountIsNotPositiveError(UserError):
         super().__init__(f"'{arg_name}' должен быть положительным числом.")
 
 
+class InvalidCurrencyCode(UserError):
+    def __init__(self, currency: str):
+        super().__init__(f"Неверный код валюты '{currency}'.")
+
+
 class InsufficientFundsError(UserError):
     def __init__(self, currency: str, available: float, required: float):
         message = (
