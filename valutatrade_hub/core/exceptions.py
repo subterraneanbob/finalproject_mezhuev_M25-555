@@ -29,6 +29,28 @@ class UnauthorizedError(UserError):
         super().__init__("Сначала выполните login.")
 
 
-class InvalidCurrencyError(UserError):
+class InvalidBaseCurrencyError(UserError):
     def __init__(self, currency: str):
         super().__init__(f"Неизвестная базовая валюта '{currency}'.")
+
+
+class InvalidCurrencyError(UserError):
+    def __init__(self, currency: str):
+        super().__init__(f"Неизвестная валюта '{currency}'.")
+
+
+class ExchangeRateUnavailableError(UserError):
+    def __init__(self, from_currency: str, to_currency: str):
+        super().__init__(
+            f"Не удалось получить курс для {from_currency} -> {to_currency}."
+        )
+
+
+class AmountIsNotPositiveError(UserError):
+    def __init__(self, arg_name: str):
+        super().__init__(f"'{arg_name}' должен быть положительным числом.")
+
+
+class InsufficientFundsError(UserError):
+    def __init__(self, currency: str):
+        super().__init__(f"Недостаточно средств ({currency}).")

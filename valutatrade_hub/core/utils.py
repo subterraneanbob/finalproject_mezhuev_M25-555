@@ -1,5 +1,27 @@
+from collections.abc import Iterable
 from hashlib import sha256
 from os import urandom
+
+
+class AmountMaxWidth:
+    """
+    Рассчитывает максимальную ширину отформатированного значения валюты для
+    вывода на экран.
+    """
+
+    def __init__(self, iterable: Iterable[float] | None = None):
+        self.max_width = 0
+
+        if iterable:
+            for amount in iterable:
+                self.update(amount)
+
+    def update(self, amount: float):
+        width = len(format_currency(amount))
+        self.max_width = max(self.max_width, width)
+
+    def __int__(self):
+        return self.max_width
 
 
 def get_hashed_password(password: str, salt: str) -> str:
@@ -47,3 +69,16 @@ def format_currency(
         str: Отформатированная строка.
     """
     return f"{amount:{width}.{decimal_places}f}"
+
+
+def format_exchange_rate(amount: float) -> str:
+    """
+    Форматирует значение курса обмена валюты.
+
+    Args:
+        amount (float): Значение курса обмена валюты.
+
+    Returns:
+        str: Отформатированная строка.
+    """
+    return f"{amount:.6f}"

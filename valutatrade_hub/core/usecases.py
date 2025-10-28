@@ -1,8 +1,18 @@
 from datetime import datetime
 
-from .exceptions import InvalidCurrencyError, UnauthorizedError, UsernameTakenError
-from .models import ExchangeRates, Portfolio, User
-from .utils import format_currency, generate_salt
+from .exceptions import (
+    AmountIsNotPositiveError,
+    InvalidBaseCurrencyError,
+    UnauthorizedError,
+    UsernameTakenError,
+)
+from .models import ExchangeRates, Portfolio, User, Wallet
+from .utils import (
+    AmountMaxWidth,
+    format_currency,
+    format_exchange_rate,
+    generate_salt,
+)
 
 
 class UserSession:
@@ -46,6 +56,66 @@ def _check_auth() -> User:
         raise UnauthorizedError
 
     return user
+
+
+def _deposit_base_currency(wallet: Wallet, amount: float):
+    """
+    Пополняет кошелёк в базовой валюте на указанную сумму и печатает результат.
+    """
+    currency = wallet.currency_code
+    before_amount = wallet.balance
+    wallet.deposit(amount)
+    after_amount = wallet.balance
+
+    print(f"Пополнение: {format_currency(amount)} {currency}.")
+    print("Изменения в портфеле:")
+    print(
+        f"- {currency}: было {format_currency(before_amount)}"
+        f" -> стало {format_currency(after_amount)}"
+    )
+
+
+def _buy_currency(
+    wallet: Wallet,
+    amount: float,
+    wallet_bc: Wallet,
+    amount_bc: float,
+    rate: float,
+):
+    """
+    Покупает валюту на указанную сумму, расплачиваясь базовой валютой по указанному
+    курсу обмена, и печатает результат.
+    """
+    currency = wallet.currency_code
+    base_currency = wallet_bc.currency_code
+    before_amount, before_amount_bc = wallet.balance, wallet_bc.balance
+
+    wallet_bc.withdraw(amount_bc)
+    wallet.deposit(amount)
+
+    after_amount, after_amount_bc = wallet.balance, wallet_bc.balance
+
+    max_width_before = int(AmountMaxWidth((before_amount, before_amount_bc)))
+    max_width_after = int(AmountMaxWidth((after_amount, after_amount_bc)))
+
+    print(
+        f"Покупка выполнена: {format_currency(amount)} {currency} "
+        f"по курсу {format_exchange_rate(rate)} {base_currency}/{currency}."
+    )
+    print("Изменения в портфеле:")
+    print(
+        f"- {currency}: было "
+        f"{format_currency(before_amount, width=max_width_before)}"
+        " -> стало "
+        f"{format_currency(after_amount, width=max_width_after)}"
+    )
+    print(
+        f"- {base_currency}: было "
+        f"{format_currency(before_amount_bc, width=max_width_before)}"
+        " -> стало "
+        f"{format_currency(after_amount_bc, width=max_width_after)}"
+    )
+    print(f"Оценочная стоимость покупки: {format_currency(amount_bc)} {base_currency}")
 
 
 def register_user(username: str, password: str) -> int:
@@ -119,12 +189,8 @@ def show_portfolio(base_currency: str = "USD"):
         UnauthorizedError: Если пользователь не залогинен.
     """
 
-    def update_max_width(max_width: int, amount: float) -> int:
-        width = len(format_currency(amount))
-        return max(max_width, width)
-
     user = _check_auth()
-    portfolio = Portfolio.find(user.user_id)
+    portfolio = Portfolio.find(user.user_id, Portfolio.load())
     wallets = portfolio.wallets
 
     if not wallets:
@@ -134,12 +200,12 @@ def show_portfolio(base_currency: str = "USD"):
     exchange_rates = ExchangeRates.load()
 
     if base_currency not in exchange_rates.currencies:
-        raise InvalidCurrencyError(base_currency)
+        raise InvalidBaseCurrencyError(base_currency)
 
     # Максимальная длина значения баланса в валюте кошелька и в базовой
     # для выравнивания при выводе.
-    max_width = 0
-    max_width_bc = 0
+    max_width = AmountMaxWidth()
+    max_width_bc = AmountMaxWidth()
 
     total_value = portfolio.get_total_value(exchange_rates, base_currency)
 
@@ -148,17 +214,62 @@ def show_portfolio(base_currency: str = "USD"):
         balance = wallet.balance
         exchange_rate = exchange_rates.get_exchange_rate(currency, base_currency)
         balance_bс = balance * exchange_rate
-        max_width = update_max_width(max_width, balance)
-        max_width_bc = update_max_width(max_width_bc, balance_bс)
+        max_width.update(balance)
+        max_width_bc.update(balance_bс)
         balances_by_wallet.append((currency, balance, balance_bс))
 
     print(f"Портфель пользователя '{user.username}' (база: {base_currency}):")
 
     for currency, balance, balance_bc in balances_by_wallet:
         print(
-            f"- {currency}: {format_currency(balance, width=max_width)} -> "
-            f"{format_currency(balance_bc, width=max_width_bc)} {base_currency}"
+            f"- {currency}: {format_currency(balance, width=int(max_width))} -> "
+            f"{format_currency(balance_bc, width=int(max_width_bc))} {base_currency}"
         )
 
     print("-----------------------------------")
     print(f"ИТОГО: {format_currency(total_value)} {base_currency}")
+
+
+def buy(currency: str, amount: float, base_currency: str = "USD"):
+    """
+    Покупает указанное количество валюты. Если указана базовая валюта в качестве
+    валюты покупки, тогда пополняет баланс кошелька в базовой валюте на
+    указанную сумму.
+
+    Args:
+        currency (str): Код валюты, в которой совершается покупка.
+        amount (float): Количество покупаемой валюты.
+        base_currency (str, optional): Базовая валюта.
+
+    Raises:
+        AmountIsNegativeError: Если отрицательная сумма покупки.
+        UnauthorizedError: Если пользователь не залогинен.
+        InvalidCurrencyError: Если указана неизвестная валюта.
+        ExchangeRateUnavailableError: Если недоступен курс обмена валют.
+    """
+
+    if amount <= 0:
+        raise AmountIsNotPositiveError("amount")
+
+    user = _check_auth()
+
+    exchange_rates = ExchangeRates.load()
+    rate = exchange_rates.get_exchange_rate(currency, base_currency)
+
+    portfolios = Portfolio.load()
+    portfolio = Portfolio.find(user.user_id, portfolios)
+    portfolio.add_currency(currency)
+    wallet = portfolio.get_wallet(currency)
+
+    if currency == base_currency:
+        # Пополнение кошелька
+        _deposit_base_currency(wallet, amount)
+    else:
+        # Покупка валюты
+        portfolio.add_currency(base_currency)
+        wallet_bc = portfolio.get_wallet(base_currency)
+        amount_bc = amount * rate
+
+        _buy_currency(wallet, amount, wallet_bc, amount_bc, rate)
+
+    Portfolio.save(portfolios)

@@ -1,9 +1,16 @@
 import shlex
 
 from ..core.exceptions import UserError
-from ..core.usecases import login, register_user, show_portfolio
+from ..core.usecases import buy, login, register_user, show_portfolio
 
 _QUIT = "quit"  # Команда для выхода
+
+
+def _parse_amount(float_str: str) -> float | None:
+    try:
+        return float(float_str)
+    except ValueError:
+        print("Неверное значение для 'amount'.")
 
 
 def get_command() -> str:
@@ -15,7 +22,9 @@ def get_command() -> str:
     """
 
     try:
-        return input("\n> ")
+        while not (user_input := input("\n> ")):
+            pass
+        return user_input
     except (KeyboardInterrupt, EOFError):
         return _QUIT
 
@@ -47,6 +56,9 @@ def handle_command(command: str):
             show_portfolio(base_currency)
         case ["show-portfolio"]:
             show_portfolio()
+        case ["buy", "--currency", currency, "--amount", amount_str]:
+            if (amount := _parse_amount(amount_str)) is not None:
+                buy(currency, amount)
         case _:
             print("Неверная команда. Попробуйте снова.")
 

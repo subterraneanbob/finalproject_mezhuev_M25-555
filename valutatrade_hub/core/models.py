@@ -3,7 +3,14 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 
-from .exceptions import IncorrectPasswordError, PasswordTooShortError, UserNotFoundError
+from .exceptions import (
+    ExchangeRateUnavailableError,
+    IncorrectPasswordError,
+    InsufficientFundsError,
+    InvalidCurrencyError,
+    PasswordTooShortError,
+    UserNotFoundError,
+)
 from .utils import get_hashed_password
 
 
@@ -249,13 +256,13 @@ class Wallet:
             amount (float): Сумма снятия.
 
         Raises:
-            ValueError: Если сумма снятия не положительная или превышает текущий
-            баланс.
+            InsufficientFundsError: Если сумма снятия не положительная или
+            превышает текущий баланс.
         """
         Wallet._raise_if_not_positive(amount)
 
         if amount > self._balance:
-            raise ValueError("Сумма снятия превышает баланс.")
+            raise InsufficientFundsError(self.currency_code)
 
         self._balance -= amount
 
@@ -365,11 +372,24 @@ class ExchangeRates:
             from_currency (str): Код валюты, которую нужно конвертировать.
             to_currency (str): Код валюты, в которую происходит конвертация.
 
+        Raises:
+            InvalidCurrencyError: Если неизвестный код валюты.
+            ExchangeRateUnavailableError: Если курс обмена не указан.
+
         Returns:
             float: Актуальный курс обмена.
         """
+        if from_currency not in self._currencies:
+            raise InvalidCurrencyError(from_currency)
+
+        if to_currency not in self._currencies:
+            raise InvalidCurrencyError(to_currency)
+
         if from_currency == to_currency:
             return 1.0
+
+        if (from_currency, to_currency) not in self._rates:
+            raise ExchangeRateUnavailableError(from_currency, to_currency)
 
         exchange_rate = self._rates[(from_currency, to_currency)]
         return exchange_rate.rate
@@ -413,15 +433,16 @@ class Portfolio:
             return json.load(json_file, object_hook=decode_portfolio)
 
     @classmethod
-    def find(cls, user_id: int, file_path: str = DATA_FILE_PATH):
+    def find(cls, user_id: int, portfolios: list):
         """
-        Загружает данные о портфеле пользователя по его указанному номеру из файла..
+        Находит данные о портфеле пользователя по его указанному номеру в
+        списке доступных портфелей.
 
         Args:
-            key (int or str): Номер пользователя.
-            file_path (str, optional): Путь к файлу с данными пользователей.
+            user_id (int): Номер пользователя.
+            portfolios (list): Список портфелей.
         """
-        for portfolio in cls.load(file_path):
+        for portfolio in portfolios:
             if portfolio._user_id == user_id:
                 return portfolio
         raise KeyError("Портфель не найден.")
