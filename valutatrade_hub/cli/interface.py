@@ -1,7 +1,7 @@
 import shlex
 
 from ..core.exceptions import UserError
-from ..core.usecases import login, register_user
+from ..core.usecases import login, register_user, show_portfolio
 
 _QUIT = "quit"  # Команда для выхода
 
@@ -43,6 +43,10 @@ def handle_command(command: str):
         case ["login", "--username", username, "--password", password]:
             login(username, password)
             print(f"Вы вошли как '{username}'.")
+        case ["show-portfolio", "--base", base_currency]:
+            show_portfolio(base_currency)
+        case ["show-portfolio"]:
+            show_portfolio()
         case _:
             print("Неверная команда. Попробуйте снова.")
 

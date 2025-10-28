@@ -317,6 +317,7 @@ class ExchangeRates:
         self.source = source
         self.last_refresh = last_refresh
         self._rates = rates
+        self._currencies = frozenset(e.from_currency for e in rates.values())
 
     @classmethod
     def load(cls, file_path: str = DATA_FILE_PATH):
@@ -351,6 +352,11 @@ class ExchangeRates:
         with open(file_path, "r", encoding="utf-8") as json_file:
             return json.load(json_file, object_hook=decode_rates)
 
+    @property
+    def currencies(self) -> frozenset[str]:
+        """frozenset[str]: Множество доступных кодов валют."""
+        return self._currencies.copy()
+
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> float:
         """
         Возвращает курс обмена для валютной пары.
@@ -362,6 +368,9 @@ class ExchangeRates:
         Returns:
             float: Актуальный курс обмена.
         """
+        if from_currency == to_currency:
+            return 1.0
+
         exchange_rate = self._rates[(from_currency, to_currency)]
         return exchange_rate.rate
 
