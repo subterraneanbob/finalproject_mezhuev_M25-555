@@ -1,7 +1,7 @@
+import re
 from abc import ABC, abstractmethod
 
 from .exceptions import CurrencyNotFoundError
-from .utils import validate_currency
 
 FIAT_CURRENCY_DATA = {
     "USD": ("US Dollar", "United States"),
@@ -30,8 +30,12 @@ class Currency(ABC):
         в верхнем регистре).
     """
 
+    _CURRENCY_RE = re.compile(r"^[A-Z]{2,5}$")
+
     def __init__(self, code: str, name: str):
-        validate_currency(code)
+        if not Currency._CURRENCY_RE.match(code):
+            raise ValueError("Неверный код валюты.")
+
         if not name:
             raise ValueError("Название валюты не может быть пустой строкой.")
 

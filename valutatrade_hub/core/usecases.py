@@ -1,14 +1,13 @@
 from datetime import datetime
 from functools import wraps
 
+from .currencies import get_currency
 from .models import ExchangeRates, Portfolio, User, Wallet
 from .utils import (
     AmountMaxWidth,
     format_currency,
     format_exchange_rate,
     generate_salt,
-    validate_amount,
-    validate_currency,
 )
 
 DEFAULT_USER = User(0, "default_user", "", "", datetime.min)
@@ -280,9 +279,12 @@ def show_portfolio(base_currency: str = "USD", user: User = DEFAULT_USER):
         base_currency (str, optional): Базовая валюта, в которой будет подсчитана
         итоговая стоимость портфеля.
         user (User, optional): Авторизованный пользователь.
+
+    Raises:
+        CurrencyNotFoundError: Если код валюты неизвестен.
     """
 
-    validate_currency(base_currency)
+    get_currency(base_currency)
 
     portfolio = Portfolio.find(user.user_id, Portfolio.load())
     wallets = portfolio.wallets
@@ -339,14 +341,13 @@ def buy(
         user (User, optional): Авторизованный пользователь.
 
     Raises:
-        AmountIsNegativeError: Если отрицательная сумма покупки.
-        InvalidCurrencyError: Если указана неизвестная валюта.
+        CurrencyNotFoundError: Если код валюты неизвестен.
+        InvalidAmountError: Если отрицательная сумма покупки.
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
 
-    validate_currency(currency)
-    validate_currency(base_currency)
-    validate_amount(amount)
+    get_currency(currency)
+    get_currency(base_currency)
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
@@ -388,13 +389,13 @@ def sell(
         user (User, optional): Авторизованный пользователь.
 
     Raises:
-        AmountIsNegativeError: Если отрицательная сумма покупки.
-        InvalidCurrencyError: Если указана неизвестная валюта.
+        CurrencyNotFoundError: Если код валюты неизвестен.
+        InvalidAmountError: Если отрицательная сумма продажи.
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
-    validate_currency(currency)
-    validate_currency(base_currency)
-    validate_amount(amount)
+
+    get_currency(currency)
+    get_currency(base_currency)
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
@@ -423,9 +424,14 @@ def get_rate(from_currency: str, to_currency: str):
     Args:
         from_currency (str): Код исходной валюты.
         to_currency (str): Код целевой валюты.
+
+    Raises:
+        CurrencyNotFoundError: Если код валюты неизвестен.
+        ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
-    validate_currency(from_currency)
-    validate_currency(to_currency)
+
+    get_currency(from_currency)
+    get_currency(to_currency)
 
     exchange_rates = ExchangeRates.load()
     exchange_rate = exchange_rates.get_exchange_rate(from_currency, to_currency)

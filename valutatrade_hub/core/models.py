@@ -9,7 +9,7 @@ from .exceptions import (
     InsufficientFundsError,
     WalletNotFound,
 )
-from .utils import get_hashed_password, validate_amount, validate_currency
+from .utils import get_hashed_password, validate_amount
 
 
 class User:
@@ -193,7 +193,6 @@ class Wallet:
     """
 
     def __init__(self, currency_code: str, balance: float = 0.0):
-        validate_currency(currency_code)
         self.currency_code = currency_code
         self.balance = balance
 
@@ -231,7 +230,7 @@ class Wallet:
             amount (float): Сумма пополнения.
 
         Raises:
-            AmountIsNotPositiveError: Если сумма пополнения неположительная.
+            ValueError: Если сумма пополнения неположительная.
         """
         validate_amount(amount)
 
@@ -245,7 +244,7 @@ class Wallet:
             amount (float): Сумма снятия.
 
         Raises:
-            AmountIsNotPositiveError: Если сумма снятия не положительная.
+            ValueError: Если сумма снятия не положительная.
             InsufficientFundsError: Если сумма снятия превышает текущий баланс.
         """
         validate_amount(amount)
@@ -365,9 +364,6 @@ class ExchangeRates:
             ExchangeRate: Объект, реализующий курс обмена валюты, актуальный в
             определённое время.
         """
-        validate_currency(from_currency)
-        validate_currency(to_currency)
-
         if from_currency == to_currency:
             return ExchangeRate(from_currency, from_currency, 1.0, datetime.now())
 

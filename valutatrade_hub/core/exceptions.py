@@ -7,16 +7,6 @@ class ExchangeRateUnavailableError(UserError):
         super().__init__(f"Курс для '{from_currency}' не найден в кеше.")
 
 
-class AmountIsNotPositiveError(UserError):
-    def __init__(self, arg_name: str = "amount"):
-        super().__init__(f"'{arg_name}' должен быть положительным числом.")
-
-
-class InvalidCurrencyCode(UserError):
-    def __init__(self, currency: str):
-        super().__init__(f"Неверный код валюты '{currency}'.")
-
-
 class InsufficientFundsError(UserError):
     def __init__(self, currency: str, available: float, required: float):
         message = (
@@ -39,3 +29,8 @@ class WalletNotFound(UserError):
 class CurrencyNotFoundError(UserError):
     def __init__(self, currency: str):
         super().__init__(f"Валюта '{currency}' не найдена.")
+
+
+class InvalidAmountError(UserError):
+    def __init__(self, attr_name: str):
+        super().__init__(f"'{attr_name}' должен быть положительным числом.")

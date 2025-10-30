@@ -1,11 +1,8 @@
-import re
 from collections.abc import Iterable
 from hashlib import sha256
 from os import urandom
 
-from .exceptions import AmountIsNotPositiveError, InvalidCurrencyCode
-
-_CURRENCY_RE = re.compile(r"^[A-Z]{2,5}$")
+from .exceptions import InvalidAmountError
 
 
 class AmountMaxWidth:
@@ -89,20 +86,6 @@ def format_exchange_rate(amount: float) -> str:
     return f"{amount:.6f}"
 
 
-def validate_currency(currency_code: str):
-    """
-    Валидирует код валюты.
-
-    Args:
-        currency_code (str): Код валюты.
-
-    Raises:
-        InvalidCurrencyCode: Если некорректный код валюты.
-    """
-    if not _CURRENCY_RE.match(currency_code):
-        raise InvalidCurrencyCode(currency_code)
-
-
 def validate_amount(amount: float, attr_name: str = "amount"):
     """
     Проверяет, является ли денежная сумма положительной.
@@ -113,7 +96,7 @@ def validate_amount(amount: float, attr_name: str = "amount"):
         исключение.
 
     Raises:
-        AmountIsNotPositiveError: Если сумма неположительная.
+        InvalidAmountError: Если сумма неположительная.
     """
     if amount <= 0:
-        raise AmountIsNotPositiveError(attr_name)
+        raise InvalidAmountError(attr_name)
