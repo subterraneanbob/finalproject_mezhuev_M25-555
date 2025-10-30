@@ -76,3 +76,8 @@ class WalletNotFound(UserError):
             "она создаётся автоматически при первой покупке."
         )
         super().__init__(message)
+
+
+class CurrencyNotFoundError(UserError):
+    def __init__(self, currency: str):
+        super().__init__(f"Валюта '{currency}' не найдена.")
