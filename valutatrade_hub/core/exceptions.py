@@ -2,11 +2,6 @@ class UserError(Exception):
     pass
 
 
-class IncorrectPasswordError(UserError):
-    def __init__(self):
-        super().__init__("Неверный пароль.")
-
-
 class UnauthorizedError(UserError):
     def __init__(self):
         super().__init__("Сначала выполните login.")

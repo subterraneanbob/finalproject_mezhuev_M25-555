@@ -99,13 +99,10 @@ class User:
             key (int or str): Ключ для идентификации пользователя. Для выбора по
             номеру пользователя нужно передать int, по имени пользователя - str.
             file_path (str, optional): Путь к файлу с данными пользователей.
-        Raises:
-            KeyError: Если пользователь не найден.
         """
         for user in cls.load(file_path):
             if user.user_id == key or user.username == key:
                 return user
-        raise KeyError(str(key))
 
     @property
     def user_id(self) -> int:
@@ -214,7 +211,6 @@ class Wallet:
 
         Raises:
             TypeError: Если новое значение не типа float или int.
-            AmountIsNotPositiveError: Если баланс неположительный.
         """
 
         if not isinstance(value, (float, int)):
@@ -472,7 +468,9 @@ class Portfolio:
     @property
     def user(self) -> User:
         """User: Возвращает объект пользователя."""
-        return User.find(self._user_id)
+        if not (user := User.find(self._user_id)):
+            raise KeyError("Пользователь не найден.")
+        return user
 
     @property
     def wallets(self) -> dict[str, Wallet]:

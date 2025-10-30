@@ -54,7 +54,6 @@ def handle_command(command: str):
             register_user(username, password)
         case ["login", "--username", username, "--password", password]:
             login(username, password)
-            print(f"Вы вошли как '{username}'.")
         case ["show-portfolio", "--base", base_currency]:
             show_portfolio(base_currency)
         case ["show-portfolio"]:

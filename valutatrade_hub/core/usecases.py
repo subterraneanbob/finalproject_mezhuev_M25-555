@@ -197,11 +197,6 @@ def register_user(username: str, password: str):
     Args:
         username (str): Имя нового пользователя.
         password (str): Пароль нового пользователя.
-
-    Raises:
-        ValueError: Если имя пользователя пустое.
-        UsernameTakenError: Если имя пользователя занято.
-        PasswordTooShortError: Если пароль слишком короткий.
     """
 
     if not username:
@@ -243,19 +238,21 @@ def login(username: str, password: str):
     Проверяет пароль и авторизует пользователя.
 
     Args:
-        username (str): Имя нового пользователя.
-        password (str): Пароль нового пользователя.
-
-    Raises:
-        UserNotFoundError: Если пользователь с именем `username` не зарегистрирован.
-        IncorrectPasswordError: Если неправильный пароль.
+        username (str): Имя пользователя.
+        password (str): Пароль пользователя.
     """
+    if not (user := User.find(username)):
+        print(f"Пользователь {user} не найден.")
+        return
 
-    user = User.find(username)
-    user.verify_password(password)
+    if not user.verify_password(password):
+        print("Неверный пароль.")
+        return
 
     session = UserSession()
     session.authenticate(user)
+
+    print(f"Вы вошли как '{username}'.")
 
 
 def show_portfolio(base_currency: str = "USD"):
