@@ -51,11 +51,7 @@ def handle_command(command: str):
 
     match parts:
         case ["register", "--username", username, "--password", password]:
-            user_id = register_user(username, password)
-            print(
-                f"Пользователь '{username}' зарегистрирован (id={user_id}). "
-                f"Войдите: login --username {username} --password ****"
-            )
+            register_user(username, password)
         case ["login", "--username", username, "--password", password]:
             login(username, password)
             print(f"Вы вошли как '{username}'.")

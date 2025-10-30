@@ -6,10 +6,7 @@ from datetime import datetime
 from .currencies import get_currency
 from .exceptions import (
     ExchangeRateUnavailableError,
-    IncorrectPasswordError,
     InsufficientFundsError,
-    PasswordTooShortError,
-    UserNotFoundError,
     WalletNotFound,
 )
 from .utils import get_hashed_password, validate_amount, validate_currency
@@ -38,8 +35,8 @@ class User:
         salt: str,
         registration_date: datetime,
     ):
+        self.username = username
         self._user_id = user_id
-        self._username = username
         self._hashed_password = hashed_password
         self._salt = salt
         self._registration_date = registration_date
@@ -103,12 +100,12 @@ class User:
             номеру пользователя нужно передать int, по имени пользователя - str.
             file_path (str, optional): Путь к файлу с данными пользователей.
         Raises:
-            UserNotFoundError: Если пользователь не найден.
+            KeyError: Если пользователь не найден.
         """
         for user in cls.load(file_path):
             if user.user_id == key or user.username == key:
                 return user
-        raise UserNotFoundError(str(key))
+        raise KeyError(str(key))
 
     @property
     def user_id(self) -> int:
@@ -168,26 +165,25 @@ class User:
             new_password (str): Новый пароль.
 
         Raises:
-            PasswordTooShortError: Если пароль слишком короткий.
+            ValueError: Если пароль слишком короткий.
         """
-        if not new_password or len(new_password) < User.MIN_PASSWORD_LEN:
-            raise PasswordTooShortError(User.MIN_PASSWORD_LEN)
+        if len(new_password) < User.MIN_PASSWORD_LEN:
+            message = f"Пароль должен быть не короче {User.MIN_PASSWORD_LEN} символов."
+            raise ValueError(message)
 
         self._hashed_password = get_hashed_password(new_password, self._salt)
 
-    def verify_password(self, password: str):
+    def verify_password(self, password: str) -> bool:
         """
         Проверяет, верный ли передан пароль.
 
         Args:
             password (str): Пароль для проверки.
 
-        Raises:
-            IncorrectPasswordError: Если неверный пароль.
+        Returns:
+            bool: True, если пароль верный, иначе False.
         """
-
-        if self._hashed_password != get_hashed_password(password, self._salt):
-            raise IncorrectPasswordError
+        return self._hashed_password == get_hashed_password(password, self._salt)
 
 
 class Wallet:

@@ -1,9 +1,6 @@
 from datetime import datetime
 
-from .exceptions import (
-    UnauthorizedError,
-    UsernameTakenError,
-)
+from .exceptions import UnauthorizedError
 from .models import ExchangeRates, Portfolio, User, Wallet
 from .utils import (
     AmountMaxWidth,
@@ -193,7 +190,7 @@ def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
         )
 
 
-def register_user(username: str, password: str) -> int:
+def register_user(username: str, password: str):
     """
     Регистрирует нового пользователя в системе.
 
@@ -202,16 +199,23 @@ def register_user(username: str, password: str) -> int:
         password (str): Пароль нового пользователя.
 
     Raises:
+        ValueError: Если имя пользователя пустое.
         UsernameTakenError: Если имя пользователя занято.
         PasswordTooShortError: Если пароль слишком короткий.
-
-    Returns:
-        int: Уникальный номер пользователя.
     """
-    users = User.load()
 
+    if not username:
+        print("Имя пользователя не может быть пустым.")
+        return
+
+    if len(password) < User.MIN_PASSWORD_LEN:
+        print(f"Пароль должен быть не короче {User.MIN_PASSWORD_LEN} символов.")
+        return
+
+    users = User.load()
     if any(user.username == username for user in users):
-        raise UsernameTakenError(username)
+        print(f"Имя пользователя '{username}' уже занято.")
+        return
 
     user_id = max([user.user_id for user in users], default=0) + 1
     salt = generate_salt()
@@ -228,7 +232,10 @@ def register_user(username: str, password: str) -> int:
 
     User.save(users)
 
-    return user_id
+    print(
+        f"Пользователь '{username}' зарегистрирован (id={user_id}). "
+        f"Войдите: login --username {username} --password ****"
+    )
 
 
 def login(username: str, password: str):
