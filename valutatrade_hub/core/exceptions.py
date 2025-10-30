@@ -2,11 +2,6 @@ class UserError(Exception):
     pass
 
 
-class UnauthorizedError(UserError):
-    def __init__(self):
-        super().__init__("Сначала выполните login.")
-
-
 class ExchangeRateUnavailableError(UserError):
     def __init__(self, from_currency: str):
         super().__init__(f"Курс для '{from_currency}' не найден в кеше.")

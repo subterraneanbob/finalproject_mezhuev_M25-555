@@ -1,6 +1,6 @@
 from datetime import datetime
+from functools import wraps
 
-from .exceptions import UnauthorizedError
 from .models import ExchangeRates, Portfolio, User, Wallet
 from .utils import (
     AmountMaxWidth,
@@ -10,6 +10,8 @@ from .utils import (
     validate_amount,
     validate_currency,
 )
+
+DEFAULT_USER = User(0, "default_user", "", "", datetime.min)
 
 
 class UserSession:
@@ -41,18 +43,31 @@ class UserSession:
         return self._principal
 
 
-def _check_auth() -> User:
+def authorize(arg_name: str = "user"):
     """
-    Проверяет, авторизован ли пользователь.
+    Декоратор, который требует наличие авторизованного пользователя для выполнения
+    декорируемой функции. Объект пользователя передаётся в функцию под указанным
+    именем.
 
-    Returns:
-        User: Текущий авторизованный пользователь.
+    Args:
+        arg_name (str): Название параметра, в котором будет передан объект
+        пользователя.
     """
-    session = UserSession()
-    if not (user := session.principal):
-        raise UnauthorizedError
 
-    return user
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            session = UserSession()
+            user = session.principal
+            if user:
+                kwargs[arg_name] = user
+                return func(*args, **kwargs)
+            else:
+                print("Сначала выполните login.")
+
+        return wrapper
+
+    return decorator
 
 
 def _deposit_base_currency(wallet: Wallet, amount: float):
@@ -255,7 +270,8 @@ def login(username: str, password: str):
     print(f"Вы вошли как '{username}'.")
 
 
-def show_portfolio(base_currency: str = "USD"):
+@authorize()
+def show_portfolio(base_currency: str = "USD", user: User = DEFAULT_USER):
     """
     Показывает информацию о всех кошельках и итоговую стоимость в заданной
     валюте (USD по умолчанию).
@@ -263,14 +279,11 @@ def show_portfolio(base_currency: str = "USD"):
     Args:
         base_currency (str, optional): Базовая валюта, в которой будет подсчитана
         итоговая стоимость портфеля.
-
-    Raises:
-        UnauthorizedError: Если пользователь не залогинен.
+        user (User, optional): Авторизованный пользователь.
     """
 
     validate_currency(base_currency)
 
-    user = _check_auth()
     portfolio = Portfolio.find(user.user_id, Portfolio.load())
     wallets = portfolio.wallets
 
@@ -307,7 +320,13 @@ def show_portfolio(base_currency: str = "USD"):
     print(f"ИТОГО: {format_currency(total_value)} {base_currency}")
 
 
-def buy(currency: str, amount: float, base_currency: str = "USD"):
+@authorize()
+def buy(
+    currency: str,
+    amount: float,
+    base_currency: str = "USD",
+    user: User = DEFAULT_USER,
+):
     """
     Покупает указанное количество валюты. Если указана базовая валюта в качестве
     валюты покупки, тогда пополняет баланс кошелька в базовой валюте на
@@ -317,10 +336,10 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
         currency (str): Код валюты, в которой совершается покупка.
         amount (float): Количество покупаемой валюты.
         base_currency (str, optional): Базовая валюта.
+        user (User, optional): Авторизованный пользователь.
 
     Raises:
         AmountIsNegativeError: Если отрицательная сумма покупки.
-        UnauthorizedError: Если пользователь не залогинен.
         InvalidCurrencyError: Если указана неизвестная валюта.
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
@@ -328,7 +347,6 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
     validate_currency(currency)
     validate_currency(base_currency)
     validate_amount(amount)
-    user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
@@ -352,7 +370,13 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
     Portfolio.save(portfolios)
 
 
-def sell(currency: str, amount: float, base_currency: str = "USD"):
+@authorize()
+def sell(
+    currency: str,
+    amount: float,
+    base_currency: str = "USD",
+    user: User = DEFAULT_USER,
+):
     """
     Продаёт указанное количество валюты. Если указана базовая валюта в качестве
     валюты покупки, тогда списывает сумму с баланса кошелька с базовой валютой.
@@ -361,17 +385,16 @@ def sell(currency: str, amount: float, base_currency: str = "USD"):
         currency (str): Код валюты, в которой совершается покупка.
         amount (float): Количество покупаемой валюты.
         base_currency (str, optional): Базовая валюта.
+        user (User, optional): Авторизованный пользователь.
 
     Raises:
         AmountIsNegativeError: Если отрицательная сумма покупки.
-        UnauthorizedError: Если пользователь не залогинен.
         InvalidCurrencyError: Если указана неизвестная валюта.
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
     validate_currency(currency)
     validate_currency(base_currency)
     validate_amount(amount)
-    user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
