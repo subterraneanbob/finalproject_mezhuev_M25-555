@@ -67,3 +67,10 @@ class InvalidAmountError(UserError):
 
     def __init__(self, attr_name: str):
         super().__init__(f"'{attr_name}' должен быть положительным числом.")
+
+
+class ApiRequestError(Exception):
+    """
+    Ошибка может произойти, если произошла ошибка при обращении к внешнему API.
+    Выбрасывается в слое получения курсов.
+    """
