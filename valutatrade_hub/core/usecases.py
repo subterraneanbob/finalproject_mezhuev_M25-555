@@ -1,10 +1,6 @@
-import re
 from datetime import datetime
 
 from .exceptions import (
-    AmountIsNotPositiveError,
-    InvalidBaseCurrencyError,
-    InvalidCurrencyCode,
     UnauthorizedError,
     UsernameTakenError,
 )
@@ -14,9 +10,9 @@ from .utils import (
     format_currency,
     format_exchange_rate,
     generate_salt,
+    validate_amount,
+    validate_currency,
 )
-
-_CURRENCY_CODE_REGEX = re.compile(r"^[A-Z]{3}$")
 
 
 class UserSession:
@@ -46,22 +42,6 @@ class UserSession:
         если никто ещё не проходил авторизацию.
         """
         return self._principal
-
-
-def _check_amount(amount: float):
-    """
-    Проверяет, является ли сумма положительной.
-    """
-    if amount <= 0:
-        raise AmountIsNotPositiveError("amount")
-
-
-def _check_currency(currency: str):
-    """
-    Проверяет, является ли код валюты корректным.
-    """
-    if not _CURRENCY_CODE_REGEX.match(currency):
-        raise InvalidCurrencyCode(currency)
 
 
 def _check_auth() -> User:
@@ -284,6 +264,8 @@ def show_portfolio(base_currency: str = "USD"):
         UnauthorizedError: Если пользователь не залогинен.
     """
 
+    validate_currency(base_currency)
+
     user = _check_auth()
     portfolio = Portfolio.find(user.user_id, Portfolio.load())
     wallets = portfolio.wallets
@@ -292,16 +274,12 @@ def show_portfolio(base_currency: str = "USD"):
         print(f"У пользователя '{user.username}' нет кошельков.")
         return
 
-    exchange_rates = ExchangeRates.load()
-
-    if base_currency not in exchange_rates.currencies:
-        raise InvalidBaseCurrencyError(base_currency)
-
     # Максимальная длина значения баланса в валюте кошелька и в базовой
     # для выравнивания при выводе.
     max_width = AmountMaxWidth()
     max_width_bc = AmountMaxWidth()
 
+    exchange_rates = ExchangeRates.load()
     total_value = portfolio.get_total_value(exchange_rates, base_currency)
 
     balances_by_wallet = []
@@ -343,7 +321,9 @@ def buy(currency: str, amount: float, base_currency: str = "USD"):
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
 
-    _check_amount(amount)
+    validate_currency(currency)
+    validate_currency(base_currency)
+    validate_amount(amount)
     user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
@@ -384,8 +364,9 @@ def sell(currency: str, amount: float, base_currency: str = "USD"):
         InvalidCurrencyError: Если указана неизвестная валюта.
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
-
-    _check_amount(amount)
+    validate_currency(currency)
+    validate_currency(base_currency)
+    validate_amount(amount)
     user = _check_auth()
 
     exchange_rates = ExchangeRates.load()
@@ -416,8 +397,8 @@ def get_rate(from_currency: str, to_currency: str):
         from_currency (str): Код исходной валюты.
         to_currency (str): Код целевой валюты.
     """
-    _check_currency(from_currency)
-    _check_currency(to_currency)
+    validate_currency(from_currency)
+    validate_currency(to_currency)
 
     exchange_rates = ExchangeRates.load()
     exchange_rate = exchange_rates.get_exchange_rate(from_currency, to_currency)

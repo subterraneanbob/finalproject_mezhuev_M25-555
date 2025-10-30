@@ -3,16 +3,16 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 
+from .currencies import get_currency
 from .exceptions import (
     ExchangeRateUnavailableError,
     IncorrectPasswordError,
     InsufficientFundsError,
-    InvalidCurrencyError,
     PasswordTooShortError,
     UserNotFoundError,
     WalletNotFound,
 )
-from .utils import get_hashed_password
+from .utils import get_hashed_password, validate_amount, validate_currency
 
 
 class User:
@@ -200,13 +200,9 @@ class Wallet:
     """
 
     def __init__(self, currency_code: str, balance: float = 0.0):
+        validate_currency(currency_code)
         self.currency_code = currency_code
         self.balance = balance
-
-    @staticmethod
-    def _raise_if_not_positive(amount: float):
-        if amount <= 0:
-            raise ValueError("Сумма снятия должна быть положительной.")
 
     @property
     def balance(self) -> float:
@@ -222,7 +218,7 @@ class Wallet:
 
         Raises:
             TypeError: Если новое значение не типа float или int.
-            ValueError: Если баланс отрицательный.
+            AmountIsNotPositiveError: Если баланс неположительный.
         """
 
         if not isinstance(value, (float, int)):
@@ -243,9 +239,9 @@ class Wallet:
             amount (float): Сумма пополнения.
 
         Raises:
-            ValueError: Если сумма пополнения не положительная.
+            AmountIsNotPositiveError: Если сумма пополнения неположительная.
         """
-        Wallet._raise_if_not_positive(amount)
+        validate_amount(amount)
 
         self._balance += amount
 
@@ -257,11 +253,10 @@ class Wallet:
             amount (float): Сумма снятия.
 
         Raises:
-            InsufficientFundsError: Если сумма снятия не положительная или
-            превышает текущий баланс.
+            AmountIsNotPositiveError: Если сумма снятия не положительная.
+            InsufficientFundsError: Если сумма снятия превышает текущий баланс.
         """
-        Wallet._raise_if_not_positive(amount)
-
+        validate_amount(amount)
         if amount > self._balance:
             raise InsufficientFundsError(self.currency_code, self._balance, amount)
 
@@ -328,7 +323,6 @@ class ExchangeRates:
         self.source = source
         self.last_refresh = last_refresh
         self._rates = rates
-        self._currencies = frozenset(e.from_currency for e in rates.values())
 
     @classmethod
     def load(cls, file_path: str = DATA_FILE_PATH):
@@ -363,11 +357,6 @@ class ExchangeRates:
         with open(file_path, "r", encoding="utf-8") as json_file:
             return json.load(json_file, object_hook=decode_rates)
 
-    @property
-    def currencies(self) -> frozenset[str]:
-        """frozenset[str]: Множество доступных кодов валют."""
-        return self._currencies.copy()
-
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> ExchangeRate:
         """
         Возвращает курс обмена для валютной пары.
@@ -377,23 +366,21 @@ class ExchangeRates:
             to_currency (str): Код валюты, в которую происходит конвертация.
 
         Raises:
-            InvalidCurrencyError: Если неизвестный код валюты.
-            ExchangeRateUnavailableError: Если курс обмена не указан.
+            CurrencyNotFoundError: Если неизвестный код валюты.
+            ExchangeRateUnavailableError: Если курс обмена не доступен.
 
         Returns:
-            float: Актуальный курс обмена.
+            ExchangeRate: Объект, реализующий курс обмена валюты, актуальный в
+            определённое время.
         """
-        if from_currency not in self._currencies:
-            raise InvalidCurrencyError(from_currency)
-
-        if to_currency not in self._currencies:
-            raise InvalidCurrencyError(to_currency)
+        validate_currency(from_currency)
+        validate_currency(to_currency)
 
         if from_currency == to_currency:
             return ExchangeRate(from_currency, from_currency, 1.0, datetime.now())
 
         if (from_currency, to_currency) not in self._rates:
-            raise ExchangeRateUnavailableError(from_currency, to_currency)
+            raise ExchangeRateUnavailableError(from_currency)
 
         exchange_rate = self._rates[(from_currency, to_currency)]
         return exchange_rate
@@ -503,8 +490,7 @@ class Portfolio:
         Args:
             currency_code (str): Код валюты (например, "USD" или "BTC").
         """
-        if not currency_code:
-            raise ValueError("Неверный код валюты.")
+        _ = get_currency(currency_code)
 
         new_wallet = Wallet(currency_code)
         self._wallets.setdefault(currency_code, new_wallet)

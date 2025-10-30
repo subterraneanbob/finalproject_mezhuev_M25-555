@@ -1,6 +1,3 @@
-from .utils import format_currency
-
-
 class UserError(Exception):
     pass
 
@@ -32,25 +29,13 @@ class UnauthorizedError(UserError):
         super().__init__("Сначала выполните login.")
 
 
-class InvalidBaseCurrencyError(UserError):
-    def __init__(self, currency: str):
-        super().__init__(f"Неизвестная базовая валюта '{currency}'.")
-
-
-class InvalidCurrencyError(UserError):
-    def __init__(self, currency: str):
-        super().__init__(f"Неизвестная валюта '{currency}'.")
-
-
 class ExchangeRateUnavailableError(UserError):
-    def __init__(self, from_currency: str, to_currency: str):
-        super().__init__(
-            f"Не удалось получить курс для {from_currency} -> {to_currency}."
-        )
+    def __init__(self, from_currency: str):
+        super().__init__(f"Курс для '{from_currency}' не найден в кеше.")
 
 
 class AmountIsNotPositiveError(UserError):
-    def __init__(self, arg_name: str):
+    def __init__(self, arg_name: str = "amount"):
         super().__init__(f"'{arg_name}' должен быть положительным числом.")
 
 
@@ -63,8 +48,8 @@ class InsufficientFundsError(UserError):
     def __init__(self, currency: str, available: float, required: float):
         message = (
             "Недостаточно средств: "
-            f"доступно {format_currency(available)} {currency}, "
-            f"требуется {format_currency(required)} {currency}"
+            f"доступно {available:.2f} {currency}, "
+            f"требуется {required:.2f} {currency}"
         )
         super().__init__(message)
 
