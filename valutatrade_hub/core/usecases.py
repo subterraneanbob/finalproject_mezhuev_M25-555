@@ -1,7 +1,10 @@
 from datetime import datetime
 from functools import wraps
 
-from .currencies import get_currency
+from .currencies import (
+    AVAILABLE_CURRENCIES,
+    get_currency,
+)
 from .models import ExchangeRates, Portfolio, User, Wallet
 from .utils import (
     AmountMaxWidth,
@@ -449,3 +452,13 @@ def get_rate(from_currency: str, to_currency: str):
         f"Обратный курс {to_currency}->{from_currency}: "
         f"{format_exchange_rate(reciprocal_rate)}"
     )
+
+
+def get_available_currencies():
+    """
+    Выводит детальный список доступных в системе валют.
+    """
+    print("\nСписок доступных валют: ")
+    for code in AVAILABLE_CURRENCIES:
+        currency = get_currency(code)
+        print(currency.get_display_info())

@@ -19,6 +19,8 @@ CRYPTO_CURRENCY_DATA = {
     "BNB": ("Binance Coin", "Proof of Staked Authority", 1.53e11),
 }
 
+AVAILABLE_CURRENCIES = (*FIAT_CURRENCY_DATA, *CRYPTO_CURRENCY_DATA)
+
 
 class Currency(ABC):
     """

@@ -1,8 +1,13 @@
 import shlex
 
-from ..core.exceptions import UserError
+from ..core import (
+    ApiRequestError,
+    CurrencyNotFoundError,
+    UserError,
+)
 from ..core.usecases import (
     buy,
+    get_available_currencies,
     get_rate,
     login,
     register_user,
@@ -17,7 +22,7 @@ def _parse_amount(float_str: str) -> float | None:
     try:
         return float(float_str)
     except ValueError:
-        print("Неверное значение для 'amount'.")
+        print("Неверное значение для 'amount'. Введите число.")
 
 
 def get_command() -> str:
@@ -78,8 +83,15 @@ def run():
     while (command := get_command()) != _QUIT:
         try:
             handle_command(command)
+        except ApiRequestError:
+            print(
+                "Не удаётся получить данные. Проверьте сетевое подключение "
+                "и повторите запрос."
+            )
+        except CurrencyNotFoundError as e:
+            print(e)
+            get_available_currencies()
         except UserError as e:
             print(e)
         except Exception as e:
-            print("Произошла неизвестная ошибка.")
-            print(e)
+            print(f"Произошла непредвиденная ошибка: {e}")
