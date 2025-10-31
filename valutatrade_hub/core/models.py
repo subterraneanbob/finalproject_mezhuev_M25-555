@@ -486,7 +486,7 @@ class Portfolio:
         self._wallets.setdefault(currency_code, new_wallet)
 
     def get_total_value(
-        self, exchange_rates: ExchangeRates, base_currency: str = "USD"
+        self, exchange_rates: ExchangeRates, base_currency: str
     ) -> float:
         """
         Подсчитывает полную стоимость портфеля в указанной базовой валюте с

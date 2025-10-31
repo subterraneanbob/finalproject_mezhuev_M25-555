@@ -24,6 +24,11 @@ exclude = ["venv", ".venv", "dist", "data", "__pycache__"]
 select = ["E", "F", "I"]
 ignore = []
 
+[tool.valutatrade]
+data_path = "data/"
+rates_ttl_seconds = 300
+base_currency = "USD"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

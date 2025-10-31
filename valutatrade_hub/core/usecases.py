@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import wraps
 
+from ..infra.settings import SettingsLoader
 from .currencies import (
     AVAILABLE_CURRENCIES,
     get_currency,
@@ -14,6 +15,7 @@ from .utils import (
 )
 
 DEFAULT_USER = User(0, "default_user", "", "", datetime.min)
+DEFAULT_BASE_CURRENCY = SettingsLoader().get("base_currency", "USD")
 
 
 class UserSession:
@@ -273,7 +275,9 @@ def login(username: str, password: str):
 
 
 @authorize()
-def show_portfolio(base_currency: str = "USD", user: User = DEFAULT_USER):
+def show_portfolio(
+    base_currency: str = DEFAULT_BASE_CURRENCY, user: User = DEFAULT_USER
+):
     """
     Показывает информацию о всех кошельках и итоговую стоимость в заданной
     валюте (USD по умолчанию).
@@ -329,7 +333,7 @@ def show_portfolio(base_currency: str = "USD", user: User = DEFAULT_USER):
 def buy(
     currency: str,
     amount: float,
-    base_currency: str = "USD",
+    base_currency: str = DEFAULT_BASE_CURRENCY,
     user: User = DEFAULT_USER,
 ):
     """
@@ -378,7 +382,7 @@ def buy(
 def sell(
     currency: str,
     amount: float,
-    base_currency: str = "USD",
+    base_currency: str = DEFAULT_BASE_CURRENCY,
     user: User = DEFAULT_USER,
 ):
     """
