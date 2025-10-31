@@ -1,4 +1,5 @@
 import shlex
+from enum import StrEnum
 
 from ..core import (
     ApiRequestError,
@@ -15,7 +16,75 @@ from ..core.usecases import (
     show_portfolio,
 )
 
-_QUIT = "quit"  # Команда для выхода
+
+class Command(StrEnum):
+    QUIT = "quit"
+    REGISTER = "register"
+    LOGIN = "login"
+    SHOW_PORTFOLIO = "show-portfolio"
+    BUY = "buy"
+    SELL = "sell"
+    GET_RATE = "get-rate"
+    HELP = "help"
+
+
+COMMANDS_REFERENCE = {
+    Command.REGISTER: (
+        "Регистрация нового пользователя.",
+        "--username <строка> --password <строка>",
+        (
+            "--username - имя пользователя (обязателен)",
+            "--password - пароль (обязателен)",
+        ),
+        "--username alice --password 1234",
+    ),
+    Command.LOGIN: (
+        "Авторизация уже существующего пользователя.",
+        "--username <строка> --password <строка>",
+        (
+            "--username - имя пользователя (обязателен)",
+            "--password - пароль (обязателен)",
+        ),
+        "--username alice --password 1234",
+    ),
+    Command.SHOW_PORTFOLIO: (
+        "Печать информации о портфеле пользователя.",
+        "--base <строка>",
+        ("--base - базовая валюта конвертации (необязателен, по умолчанию USD)",),
+        "--base RUB",
+    ),
+    Command.BUY: (
+        "Покупка или зачисление валюты.",
+        "--currency <строка> --amount <число>",
+        (
+            "--currency - код покупаемой валюты (обязателен)",
+            "--amount   - сумма покупаемой валюты (обязателен)",
+        ),
+        "--currency JPY --amount 50000",
+    ),
+    Command.SELL: (
+        "Продажа или вывод валюты.",
+        "--currency <строка> --amount <число>",
+        (
+            "--currency - код продаваемой валюты (обязателен)",
+            "--amount   - сумма продаваемой валюты (обязателен)",
+        ),
+        "--currency EUR --amount 2300",
+    ),
+    Command.GET_RATE: (
+        "Получение курса валюты.",
+        "--from <строка> --to <строка>",
+        (
+            "--from - код исходной валюты (обязателен)",
+            "--to   - код целевой валюты (обязателен)",
+        ),
+        "--from BTC --to USD",
+    ),
+    Command.HELP: ("Показывает справку о команде.", "<команда>", "", ""),
+    Command.QUIT: ("Выход из программы.", "", "", ""),
+}
+
+ALL_COMMANDS = {c.value for c in Command}
 
 
 def _parse_amount(float_str: str) -> float | None:
@@ -23,6 +92,39 @@ def _parse_amount(float_str: str) -> float | None:
         return float(float_str)
     except ValueError:
         print("Неверное значение для 'amount'. Введите число.")
+
+
+def print_help():
+    print("\nДоступные команды:\n")
+    for command, description in COMMANDS_REFERENCE.items():
+        print(f"   {command:<14}   {description[0]}")
+
+    print("\nДля получения информации о команде, введите:\n")
+    print("   help <команда>")
+
+
+def print_command_reference(command: str):
+    if command not in ALL_COMMANDS:
+        print("Неизвестная команда:")
+        print(f"   {command}")
+        return
+
+    description, usage, args, example = COMMANDS_REFERENCE[Command(command)]
+
+    if description:
+        print(f"\n{description}")
+
+    print("\nИспользование:\n")
+    print(f"   {command} {usage}")
+
+    if args:
+        print("\nПараметры:\n")
+        for arg in args:
+            print(f"   {arg}")
+
+    if example:
+        print("\nПример:\n")
+        print(f"   {command} {example}")
 
 
 def get_command() -> str:
@@ -38,7 +140,7 @@ def get_command() -> str:
             pass
         return user_input
     except (KeyboardInterrupt, EOFError):
-        return _QUIT
+        return Command.QUIT
 
 
 def handle_command(command: str):
@@ -71,8 +173,14 @@ def handle_command(command: str):
                 sell(currency, amount)
         case ["get-rate", "--from", from_currency, "--to", to_currency]:
             get_rate(from_currency, to_currency)
+        case [Command.HELP]:
+            print_help()
+        case [Command.HELP, cmd]:
+            print_command_reference(cmd)
+        case [cmd, *_] if cmd in ALL_COMMANDS:
+            print_command_reference(cmd)
         case _:
-            print("Неверная команда. Попробуйте снова.")
+            print("Неизвестная команда. Попробуйте снова.")
 
 
 def run():
@@ -80,7 +188,10 @@ def run():
     Выполняет основной цикл программы: запрашивает команду у пользователя и
     выполняет её.
     """
-    while (command := get_command()) != _QUIT:
+
+    print_help()
+
+    while (command := get_command()) != Command.QUIT:
         try:
             handle_command(command)
         except ApiRequestError:

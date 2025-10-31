@@ -8,7 +8,7 @@ FIAT_CURRENCY_DATA = {
     "EUR": ("Euro", "Eurozone"),
     "JPY": ("Japanese Yen", "Japan"),
     "GBP": ("Pound Sterling", "United Kingdom"),
-    "RUB": ("Russian ruble", "Russia"),
+    "RUB": ("Russian Ruble", "Russia"),
 }
 
 CRYPTO_CURRENCY_DATA = {
