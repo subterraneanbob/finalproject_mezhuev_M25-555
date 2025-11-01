@@ -15,7 +15,6 @@ from .utils import (
 )
 
 DEFAULT_USER = User(0, "default_user", "", "", datetime.min)
-DEFAULT_BASE_CURRENCY = SettingsLoader().get("base_currency", "USD")
 
 
 class UserSession:
@@ -209,6 +208,14 @@ def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
         )
 
 
+def _get_base_currency() -> str:
+    settings = SettingsLoader()
+    base_currency = settings.get("base_currency", "USD")
+    get_currency(base_currency)
+
+    return base_currency
+
+
 def register_user(username: str, password: str):
     """
     Регистрирует нового пользователя в системе.
@@ -237,14 +244,13 @@ def register_user(username: str, password: str):
 
     new_user = User(user_id, username, "", salt, registration_date)
     new_user.change_password(password)
+    User.save(new_user)
 
-    users.append(new_user)
+    base_currency = _get_base_currency()
 
-    portfolios = Portfolio.load()
-    portfolios.append(Portfolio(user_id, {}))
-    Portfolio.save(portfolios)
-
-    User.save(users)
+    new_portfolio = Portfolio(user_id, {})
+    new_portfolio.add_currency(base_currency)
+    Portfolio.save(new_portfolio)
 
     print(
         f"Пользователь '{username}' зарегистрирован (id={user_id}). "
@@ -260,7 +266,7 @@ def login(username: str, password: str):
         username (str): Имя пользователя.
         password (str): Пароль пользователя.
     """
-    if not (user := User.find(username)):
+    if not (user := User.find(username=username)):
         print(f"Пользователь {user} не найден.")
         return
 
@@ -275,25 +281,21 @@ def login(username: str, password: str):
 
 
 @authorize()
-def show_portfolio(
-    base_currency: str = DEFAULT_BASE_CURRENCY, user: User = DEFAULT_USER
-):
+def show_portfolio(user: User = DEFAULT_USER):
     """
-    Показывает информацию о всех кошельках и итоговую стоимость в заданной
-    валюте (USD по умолчанию).
+    Показывает информацию о всех кошельках и итоговую стоимость в базовой валюте
+    (указывается в конфигурации).
 
     Args:
-        base_currency (str, optional): Базовая валюта, в которой будет подсчитана
-        итоговая стоимость портфеля.
         user (User, optional): Авторизованный пользователь.
 
     Raises:
         CurrencyNotFoundError: Если код валюты неизвестен.
     """
 
-    get_currency(base_currency)
+    base_currency = _get_base_currency()
 
-    portfolio = Portfolio.find(user.user_id, Portfolio.load())
+    portfolio = Portfolio.find(user.user_id)
     wallets = portfolio.wallets
 
     if not wallets:
@@ -333,7 +335,6 @@ def show_portfolio(
 def buy(
     currency: str,
     amount: float,
-    base_currency: str = DEFAULT_BASE_CURRENCY,
     user: User = DEFAULT_USER,
 ):
     """
@@ -344,7 +345,6 @@ def buy(
     Args:
         currency (str): Код валюты, в которой совершается покупка.
         amount (float): Количество покупаемой валюты.
-        base_currency (str, optional): Базовая валюта.
         user (User, optional): Авторизованный пользователь.
 
     Raises:
@@ -354,13 +354,12 @@ def buy(
     """
 
     get_currency(currency)
-    get_currency(base_currency)
+    base_currency = _get_base_currency()
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
 
-    portfolios = Portfolio.load()
-    portfolio = Portfolio.find(user.user_id, portfolios)
+    portfolio = Portfolio.find(user.user_id)
     portfolio.add_currency(currency)
     wallet = portfolio.get_wallet(currency)
 
@@ -375,14 +374,13 @@ def buy(
 
         _buy_currency(wallet, amount, wallet_bc, amount_bc, rate)
 
-    Portfolio.save(portfolios)
+    Portfolio.save(portfolio)
 
 
 @authorize()
 def sell(
     currency: str,
     amount: float,
-    base_currency: str = DEFAULT_BASE_CURRENCY,
     user: User = DEFAULT_USER,
 ):
     """
@@ -392,7 +390,6 @@ def sell(
     Args:
         currency (str): Код валюты, в которой совершается покупка.
         amount (float): Количество покупаемой валюты.
-        base_currency (str, optional): Базовая валюта.
         user (User, optional): Авторизованный пользователь.
 
     Raises:
@@ -402,13 +399,12 @@ def sell(
     """
 
     get_currency(currency)
-    get_currency(base_currency)
+    base_currency = _get_base_currency()
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
 
-    portfolios = Portfolio.load()
-    portfolio = Portfolio.find(user.user_id, portfolios)
+    portfolio = Portfolio.find(user.user_id)
     wallet = portfolio.get_wallet(currency)
 
     if currency == base_currency:
@@ -421,7 +417,7 @@ def sell(
 
         _sell_currency(wallet, amount, wallet_bc, amount_bc, rate)
 
-    Portfolio.save(portfolios)
+    Portfolio.save(portfolio)
 
 
 def get_rate(from_currency: str, to_currency: str):

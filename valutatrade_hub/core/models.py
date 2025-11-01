@@ -1,8 +1,9 @@
-import json
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Self
 
+from ..infra.database import DatabaseManager
 from .currencies import get_currency
 from .exceptions import (
     ExchangeRateUnavailableError,
@@ -25,7 +26,7 @@ class User:
     """
 
     MIN_PASSWORD_LEN = 4
-    DATA_FILE_PATH = "data/users.json"
+    DATA_FILE = "users.json"
 
     def __init__(
         self,
@@ -42,12 +43,12 @@ class User:
         self._registration_date = registration_date
 
     @classmethod
-    def load(cls, file_path: str = DATA_FILE_PATH) -> list:
+    def load(cls) -> list[Self]:
         """
-        Загружает данные всех пользователей из файла.
+        Загружает данные всех пользователей из хранилища.
 
-        Args:
-            file_path (str, optional): Путь к файлу с данными пользователей.
+        Returns:
+            list[User]: Список пользователей.
         """
 
         def decode_user(dct):
@@ -58,17 +59,16 @@ class User:
                 case _:
                     return cls(**dct)
 
-        with open(file_path, "r", encoding="utf-8") as json_file:
-            return json.load(json_file, object_hook=decode_user)
+        database = DatabaseManager()
+        return database.load(cls.DATA_FILE, decode_user, list)
 
     @classmethod
-    def save(cls, users: list, file_path: str = DATA_FILE_PATH):
+    def save(cls, user: Self):
         """
         Сохраняет данные всех пользователей в файл.
 
         Args:
-            users (list): Список пользователей типа `User`, который будет сохранён.
-            file_path (str, optional): Путь к файлу с данными пользователей.
+            user (User): Пользователь, данные которого нужно сохранить.
         """
 
         def encode_user(obj):
@@ -84,24 +84,30 @@ class User:
                 case _:
                     return obj
 
-        with open(file_path, "w", encoding="utf-8") as json_file:
-            json.dump(
-                users, json_file, default=encode_user, ensure_ascii=False, indent=4
-            )
+        users = cls.load()
+        for i, existing_user in enumerate(users):
+            if existing_user.user_id == user.user_id:
+                users[i] = user
+                break
+        else:
+            users.append(user)
+
+        database = DatabaseManager()
+        database.save(cls.DATA_FILE, users, encode_func=encode_user)
 
     @classmethod
-    def find(cls, key: int | str, file_path: str = DATA_FILE_PATH):
+    def find(cls, **filters) -> Self | None:
         """
-        Загружает данные пользователя из файла по уникальному ключу:
-        по имени пользователя или по его номеру.
+        Загружает данные первого пользователя, подходящего по указанному условию.
+        Например, для выбора по номеру пользователя нужно указать параметр
+        user_id=N.
 
         Args:
-            key (int or str): Ключ для идентификации пользователя. Для выбора по
-            номеру пользователя нужно передать int, по имени пользователя - str.
-            file_path (str, optional): Путь к файлу с данными пользователей.
+            filters: Именованные параметры и их значения, по которым нужно
+            найти пользователя.
         """
-        for user in cls.load(file_path):
-            if user.user_id == key or user.username == key:
+        for user in cls.load():
+            if all(getattr(user, name) == value for name, value in filters.items()):
                 return user
 
     @property
@@ -303,7 +309,7 @@ class ExchangeRates:
         last_refresh (datetime): Время последнего обновления курсов.
     """
 
-    DATA_FILE_PATH = "data/rates.json"
+    DATA_FILE = "rates.json"
 
     def __init__(
         self,
@@ -316,12 +322,12 @@ class ExchangeRates:
         self._rates = rates
 
     @classmethod
-    def load(cls, file_path: str = DATA_FILE_PATH):
+    def load(cls) -> Self:
         """
         Загружает курсы валют из файла.
 
-        Args:
-            file_path (str, optional): Путь к файлу с курсами валют.
+        Returns:
+            ExchangeRates: Курсы обмена валют.
         """
 
         def decode_rates(dct):
@@ -345,8 +351,8 @@ class ExchangeRates:
                 case _:
                     return dct
 
-        with open(file_path, "r", encoding="utf-8") as json_file:
-            return json.load(json_file, object_hook=decode_rates)
+        database = DatabaseManager()
+        return database.load(cls.DATA_FILE, decode_rates, dict)
 
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> ExchangeRate:
         """
@@ -384,19 +390,19 @@ class Portfolio:
         класса Wallet.
     """
 
-    DATA_FILE_PATH = "data/portfolios.json"
+    DATA_FILE = "portfolios.json"
 
     def __init__(self, user_id: int, wallets: dict[str, Wallet]):
         self._user_id = user_id
         self._wallets = wallets
 
     @classmethod
-    def load(cls, file_path: str = DATA_FILE_PATH):
+    def load(cls) -> list[Self]:
         """
         Загружает данные о портфелях всех пользователей из файла.
 
-        Args:
-            file_path (str, optional): Путь к файлу с портфелям.
+        Returns:
+            list[Portfolio]: Список всех портфелей всех пользователей.
         """
 
         def decode_portfolio(dct):
@@ -408,33 +414,36 @@ class Portfolio:
                 case _:
                     return dct
 
-        with open(file_path, "r", encoding="utf-8") as json_file:
-            return json.load(json_file, object_hook=decode_portfolio)
+        database = DatabaseManager()
+        return database.load(cls.DATA_FILE, decode_portfolio, list)
 
     @classmethod
-    def find(cls, user_id: int, portfolios: list):
+    def find(cls, user_id: int) -> Self:
         """
         Находит данные о портфеле пользователя по его указанному номеру в
         списке доступных портфелей.
 
         Args:
             user_id (int): Номер пользователя.
-            portfolios (list): Список портфелей.
+
+        Raises:
+            KeyError: Если портфель не найден.
+
+        Returns:
+            Portfolio: Портфель пользователя.
         """
-        for portfolio in portfolios:
+        for portfolio in cls.load():
             if portfolio._user_id == user_id:
                 return portfolio
         raise KeyError("Портфель не найден.")
 
     @classmethod
-    def save(cls, portfolios: list, file_path: str = DATA_FILE_PATH):
+    def save(cls, portfolio: Self):
         """
         Сохраняет данные о всех портфелях в файл.
 
         Args:
-            portfolios (list): Список портфелей типа `Portfolio`, который будет
-            сохранён.
-            file_path (str, optional): Путь к файлу с данными пользователей.
+            portfolio (Portfolio): Портфель пользователя, который будет сохранён.
         """
 
         def encode_portfolio(obj):
@@ -452,21 +461,21 @@ class Portfolio:
                 case _:
                     return obj
 
-        with open(file_path, "w", encoding="utf-8") as json_file:
-            json.dump(
-                portfolios,
-                json_file,
-                default=encode_portfolio,
-                ensure_ascii=False,
-                indent=4,
-            )
+        portfolios = cls.load()
+        for i, existing_portfolio in enumerate(portfolios):
+            if existing_portfolio._user_id == portfolio._user_id:
+                portfolios[i] = portfolio
+                break
+        else:
+            portfolios.append(portfolio)
+
+        database = DatabaseManager()
+        database.save(cls.DATA_FILE, portfolios, encode_func=encode_portfolio)
 
     @property
-    def user(self) -> User:
+    def user(self) -> User | None:
         """User: Возвращает объект пользователя."""
-        if not (user := User.find(self._user_id)):
-            raise KeyError("Пользователь не найден.")
-        return user
+        return User.find(user_id=self._user_id)
 
     @property
     def wallets(self) -> dict[str, Wallet]:
