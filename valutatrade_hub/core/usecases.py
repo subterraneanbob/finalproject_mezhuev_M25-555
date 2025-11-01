@@ -1,7 +1,8 @@
 from datetime import datetime
 from functools import wraps
 
-from ..infra.settings import SettingsLoader
+from valutatrade_hub.infra import ConfigKey, SettingsLoader
+
 from .currencies import (
     AVAILABLE_CURRENCIES,
     get_currency,
@@ -210,7 +211,7 @@ def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
 
 def _get_base_currency() -> str:
     settings = SettingsLoader()
-    base_currency = settings.get("base_currency", "USD")
+    base_currency = settings.get(ConfigKey.BASE_CURRENCY, "USD")
     get_currency(base_currency)
 
     return base_currency
