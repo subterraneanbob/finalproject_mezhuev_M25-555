@@ -9,3 +9,6 @@ class ConfigKey:
 
     """Путь к директории с данными."""
     DATA_PATH = "data_path"
+
+    """Путь к директории с логами."""
+    LOG_PATH = "log_path"

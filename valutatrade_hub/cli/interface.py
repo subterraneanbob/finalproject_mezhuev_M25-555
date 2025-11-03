@@ -11,7 +11,7 @@ from ..core.usecases import (
     get_available_currencies,
     get_rate,
     login,
-    register_user,
+    register,
     sell,
     show_portfolio,
 )
@@ -158,7 +158,7 @@ def handle_command(command: str):
 
     match parts:
         case ["register", "--username", username, "--password", password]:
-            register_user(username, password)
+            register(username, password)
         case ["login", "--username", username, "--password", password]:
             login(username, password)
         case ["show-portfolio", "--base", base_currency]:

@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import wraps
 
+from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra import ConfigKey, SettingsLoader
 
 from .currencies import (
@@ -74,7 +75,7 @@ def authorize(arg_name: str = "user"):
     return decorator
 
 
-def _deposit_base_currency(wallet: Wallet, amount: float):
+def _deposit_base_currency(wallet: Wallet, amount: float) -> tuple[float, float]:
     """
     Пополняет кошелёк в базовой валюте на указанную сумму и печатает результат.
     """
@@ -86,8 +87,10 @@ def _deposit_base_currency(wallet: Wallet, amount: float):
     print(f"Пополнение: {format_currency(amount)} {currency}.")
     _print_portfolio_changes((currency, before_amount, after_amount, 0, 0))
 
+    return before_amount, after_amount
 
-def _withdraw_base_currency(wallet: Wallet, amount: float):
+
+def _withdraw_base_currency(wallet: Wallet, amount: float) -> tuple[float, float]:
     """
     Выводит валюту из кошелька с базовой валютой и печатает результат.
     """
@@ -99,6 +102,8 @@ def _withdraw_base_currency(wallet: Wallet, amount: float):
     print(f"Снятие: {format_currency(amount)} {currency}.")
     _print_portfolio_changes((currency, before_amount, after_amount, 0, 0))
 
+    return before_amount, after_amount
+
 
 def _buy_currency(
     wallet: Wallet,
@@ -106,7 +111,7 @@ def _buy_currency(
     wallet_bc: Wallet,
     amount_bc: float,
     rate: float,
-):
+) -> tuple[float, float]:
     """
     Покупает валюту на указанную сумму, расплачиваясь базовой валютой по указанному
     курсу обмена, и печатает результат.
@@ -145,6 +150,8 @@ def _buy_currency(
     )
     print(f"Оценочная стоимость покупки: {format_currency(amount_bc)} {base_currency}")
 
+    return before_amount, after_amount
+
 
 def _sell_currency(
     wallet: Wallet,
@@ -152,7 +159,7 @@ def _sell_currency(
     wallet_bc: Wallet,
     amount_bc: float,
     rate: float,
-):
+) -> tuple[float, float]:
     """
     Продаёт валюту на указанную сумму, расплачиваясь базовой валютой по указанному
     курсу обмена, и печатает результат.
@@ -191,6 +198,8 @@ def _sell_currency(
     )
     print(f"Оценочная выручка: {format_currency(amount_bc)} {base_currency}")
 
+    return before_amount, after_amount
+
 
 def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
     """
@@ -217,7 +226,7 @@ def _get_base_currency() -> str:
     return base_currency
 
 
-def register_user(username: str, password: str):
+def register(username: str, password: str):
     """
     Регистрирует нового пользователя в системе.
 
@@ -282,20 +291,20 @@ def login(username: str, password: str):
 
 
 @authorize()
-def show_portfolio(user: User = DEFAULT_USER):
+def show_portfolio(base_currency: str | None = None, user: User = DEFAULT_USER):
     """
     Показывает информацию о всех кошельках и итоговую стоимость в базовой валюте
     (указывается в конфигурации).
 
     Args:
+        base_currency (str, optional): Базовая валюта.
         user (User, optional): Авторизованный пользователь.
 
     Raises:
         CurrencyNotFoundError: Если код валюты неизвестен.
     """
 
-    base_currency = _get_base_currency()
-
+    base_currency = base_currency or _get_base_currency()
     portfolio = Portfolio.find(user.user_id)
     wallets = portfolio.wallets
 
@@ -333,10 +342,13 @@ def show_portfolio(user: User = DEFAULT_USER):
 
 
 @authorize()
+@log_action(verbose=True)
 def buy(
     currency: str,
     amount: float,
+    *,
     user: User = DEFAULT_USER,
+    context: dict | None = None,
 ):
     """
     Покупает указанное количество валюты. Если указана базовая валюта в качестве
@@ -353,7 +365,6 @@ def buy(
         InvalidAmountError: Если отрицательная сумма покупки.
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
-
     get_currency(currency)
     base_currency = _get_base_currency()
 
@@ -366,23 +377,34 @@ def buy(
 
     if currency == base_currency:
         # Пополнение кошелька
-        _deposit_base_currency(wallet, amount)
+        before, after = _deposit_base_currency(wallet, amount)
     else:
         # Покупка валюты
         portfolio.add_currency(base_currency)
         wallet_bc = portfolio.get_wallet(base_currency)
         amount_bc = amount * rate
 
-        _buy_currency(wallet, amount, wallet_bc, amount_bc, rate)
+        before, after = _buy_currency(wallet, amount, wallet_bc, amount_bc, rate)
 
     Portfolio.save(portfolio)
 
+    if context is not None:
+        context |= dict(
+            rate=rate,
+            base=base_currency,
+            before=before,
+            after=after,
+        )
+
 
 @authorize()
+@log_action(verbose=True)
 def sell(
     currency: str,
     amount: float,
+    *,
     user: User = DEFAULT_USER,
+    context: dict | None = None,
 ):
     """
     Продаёт указанное количество валюты. Если указана базовая валюта в качестве
@@ -410,15 +432,23 @@ def sell(
 
     if currency == base_currency:
         # Вывод с кошелька
-        _withdraw_base_currency(wallet, amount)
+        before, after = _withdraw_base_currency(wallet, amount)
     else:
         # Продажа валюты
         wallet_bc = portfolio.get_wallet(base_currency)
         amount_bc = amount * rate
 
-        _sell_currency(wallet, amount, wallet_bc, amount_bc, rate)
+        before, after = _sell_currency(wallet, amount, wallet_bc, amount_bc, rate)
 
     Portfolio.save(portfolio)
+
+    if context is not None:
+        context |= dict(
+            rate=rate,
+            base=base_currency,
+            before=before,
+            after=after,
+        )
 
 
 def get_rate(from_currency: str, to_currency: str):
