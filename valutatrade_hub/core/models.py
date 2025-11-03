@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Self
 
 from ..infra.database import DatabaseManager
@@ -371,7 +371,9 @@ class ExchangeRates:
             определённое время.
         """
         if from_currency == to_currency:
-            return ExchangeRate(from_currency, from_currency, 1.0, datetime.now())
+            return ExchangeRate(
+                from_currency, from_currency, 1.0, datetime.now(timezone.utc)
+            )
 
         if (from_currency, to_currency) not in self._rates:
             raise ExchangeRateUnavailableError(from_currency)

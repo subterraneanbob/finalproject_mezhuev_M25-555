@@ -1,7 +1,7 @@
 import inspect
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from time import time
 from typing import Any
@@ -33,7 +33,7 @@ def log_action(verbose: bool = False):
         entry = {}
 
         entry["level"] = LOG_LEVEL
-        entry["timestamp"] = datetime.now().isoformat(timespec="seconds")
+        entry["timestamp"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
         entry["action"] = action
 
         if user := kwargs.get("user"):

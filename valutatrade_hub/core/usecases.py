@@ -1,5 +1,5 @@
 import inspect
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Any
 
@@ -253,7 +253,7 @@ def register(username: str, password: str):
 
     user_id = max([user.user_id for user in users], default=0) + 1
     salt = generate_salt()
-    registration_date = datetime.now()
+    registration_date = datetime.now(timezone.utc)
 
     new_user = User(user_id, username, "", salt, registration_date)
     new_user.change_password(password)
