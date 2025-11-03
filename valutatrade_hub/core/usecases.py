@@ -1,5 +1,7 @@
+import inspect
 from datetime import datetime
 from functools import wraps
+from typing import Any
 
 from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra import ConfigKey, SettingsLoader
@@ -16,8 +18,6 @@ from .utils import (
     generate_salt,
 )
 
-DEFAULT_USER = User(0, "default_user", "", "", datetime.min)
-
 
 class UserSession:
     """
@@ -33,6 +33,36 @@ class UserSession:
             cls._instance._principal = None
         return cls._instance
 
+    @classmethod
+    def authorize(cls, arg_name: str = "user"):
+        """
+        Декоратор, который требует наличие авторизованного пользователя для выполнения
+        декорируемой функции. Объект пользователя передаётся в функцию под указанным
+        именем.
+
+        Args:
+            arg_name (str): Название параметра, в котором будет передан объект
+            пользователя.
+        """
+
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                session = cls()
+                user = session.principal
+
+                if arg_name in inspect.signature(func).parameters:
+                    kwargs[arg_name] = user
+
+                if user:
+                    return func(*args, **kwargs)
+                else:
+                    print("Сначала выполните login.")
+
+            return wrapper
+
+        return decorator
+
     def authenticate(self, user: User):
         """
         Запоминает пользователя, который авторизовался.
@@ -46,33 +76,6 @@ class UserSession:
         если никто ещё не проходил авторизацию.
         """
         return self._principal
-
-
-def authorize(arg_name: str = "user"):
-    """
-    Декоратор, который требует наличие авторизованного пользователя для выполнения
-    декорируемой функции. Объект пользователя передаётся в функцию под указанным
-    именем.
-
-    Args:
-        arg_name (str): Название параметра, в котором будет передан объект
-        пользователя.
-    """
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            session = UserSession()
-            user = session.principal
-            if user:
-                kwargs[arg_name] = user
-                return func(*args, **kwargs)
-            else:
-                print("Сначала выполните login.")
-
-        return wrapper
-
-    return decorator
 
 
 def _deposit_base_currency(wallet: Wallet, amount: float) -> tuple[float, float]:
@@ -290,8 +293,8 @@ def login(username: str, password: str):
     print(f"Вы вошли как '{username}'.")
 
 
-@authorize()
-def show_portfolio(base_currency: str | None = None, user: User = DEFAULT_USER):
+@UserSession.authorize()
+def show_portfolio(base_currency: str | None = None, user: Any = ...):
     """
     Показывает информацию о всех кошельках и итоговую стоимость в базовой валюте
     (указывается в конфигурации).
@@ -341,13 +344,13 @@ def show_portfolio(base_currency: str | None = None, user: User = DEFAULT_USER):
     print(f"ИТОГО: {format_currency(total_value)} {base_currency}")
 
 
-@authorize()
+@UserSession.authorize()
 @log_action(verbose=True)
 def buy(
     currency: str,
     amount: float,
     *,
-    user: User = DEFAULT_USER,
+    user: Any = ...,
     context: dict | None = None,
 ):
     """
@@ -397,13 +400,13 @@ def buy(
         )
 
 
-@authorize()
+@UserSession.authorize()
 @log_action(verbose=True)
 def sell(
     currency: str,
     amount: float,
     *,
-    user: User = DEFAULT_USER,
+    user: Any = ...,
     context: dict | None = None,
 ):
     """
