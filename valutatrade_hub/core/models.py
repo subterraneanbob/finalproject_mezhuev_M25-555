@@ -10,7 +10,7 @@ from .exceptions import (
     InsufficientFundsError,
     WalletNotFound,
 )
-from .utils import get_hashed_password, validate_amount
+from .utils import format_datetime_iso, get_hashed_password, validate_amount
 
 
 class User:
@@ -79,7 +79,7 @@ class User:
                         "username": obj.username,
                         "hashed_password": obj.hashed_password,
                         "salt": obj.salt,
-                        "registration_date": obj.registration_date.isoformat(),
+                        "registration_date": format_datetime_iso(obj.registration_date),
                     }
                 case _:
                     return obj

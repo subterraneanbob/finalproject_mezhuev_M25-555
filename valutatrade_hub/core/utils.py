@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from datetime import datetime
 from hashlib import sha256
 from os import urandom
 
@@ -100,3 +101,16 @@ def validate_amount(amount: float, attr_name: str = "amount"):
     """
     if amount <= 0:
         raise InvalidAmountError(attr_name)
+
+
+def format_datetime_iso(datetime: datetime) -> str:
+    """
+    Форматирует значение `datetime` с точностью до секунды.
+
+    Args:
+        datetime (datetime): Объект `datetime`.
+
+    Returns:
+        str: Строковое представление объекта `datetime` в формате ISO.
+    """
+    return datetime.isoformat(timespec="seconds")

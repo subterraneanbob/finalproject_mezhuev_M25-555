@@ -6,7 +6,11 @@ from functools import wraps
 from time import time
 from typing import Any
 
-from valutatrade_hub.core.utils import format_currency, format_exchange_rate
+from valutatrade_hub.core.utils import (
+    format_currency,
+    format_datetime_iso,
+    format_exchange_rate,
+)
 from valutatrade_hub.infra import ConfigKey, SettingsLoader
 
 from .logging_config import (
@@ -33,7 +37,7 @@ def log_action(verbose: bool = False):
         entry = {}
 
         entry["level"] = LOG_LEVEL
-        entry["timestamp"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        entry["timestamp"] = format_datetime_iso(datetime.now(timezone.utc))
         entry["action"] = action
 
         if user := kwargs.get("user"):
