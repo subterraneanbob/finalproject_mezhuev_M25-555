@@ -14,9 +14,9 @@ FIAT_CURRENCY_DATA = {
 CRYPTO_CURRENCY_DATA = {
     "BTC": ("Bitcoin", "SHA-256 & ECDSA", 2.20e12),
     "ETH": ("Ethereum", "Gasper", 4.71e11),
-    "USDT": ("Tether", "Stablecoin", 1.83e11),
     "XRP": ("XRP (Ripple)", "Ripple Protocol Consensus Algorithm", 1.53e11),
     "BNB": ("Binance Coin", "Proof of Staked Authority", 1.53e11),
+    "SOL": ("Solana", "Proof of History", 9.15e10),
 }
 
 AVAILABLE_CURRENCIES = (*FIAT_CURRENCY_DATA, *CRYPTO_CURRENCY_DATA)
