@@ -3,7 +3,7 @@ from datetime import datetime
 
 from valutatrade_hub.core.models import ExchangeRate, ExchangeRates
 from valutatrade_hub.core.utils import format_datetime_iso
-from valutatrade_hub.infra.database import DatabaseManager
+from valutatrade_hub.infra import DatabaseManager
 
 from .config import ParserConfig
 

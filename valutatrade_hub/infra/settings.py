@@ -1,4 +1,5 @@
 import tomllib
+from dataclasses import dataclass
 from typing import Any
 
 PYPROJECT_FILE_PATH = "pyproject.toml"
@@ -67,3 +68,16 @@ class SettingsLoader(metaclass=SingletonMeta):
         if default is Ellipsis:
             return self._settings[key]
         return self._settings.get(key, default)
+
+
+@dataclass
+class Settings:
+    BASE_CURRENCY: str
+    DATA_PATH: str
+    LOG_PATH: str
+
+    def __init__(self):
+        settings = SettingsLoader()
+        self.BASE_CURRENCY = settings.get("base_currency", "USD")
+        self.DATA_PATH = settings.get("data_path", "data/")
+        self.LOG_PATH = settings.get("log_path", "logs/")

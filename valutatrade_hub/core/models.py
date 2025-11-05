@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Self
 
-from ..infra.database import DatabaseManager
+from valutatrade_hub.infra import DatabaseManager
+
 from .currencies import get_currency
 from .exceptions import (
     ExchangeRateUnavailableError,

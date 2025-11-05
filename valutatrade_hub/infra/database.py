@@ -2,9 +2,7 @@ import json
 import os
 from typing import Any, Callable
 
-from valutatrade_hub.infra import Settings
-
-from .settings import SingletonMeta
+from .settings import Settings, SingletonMeta
 
 
 class DatabaseManager(metaclass=SingletonMeta):

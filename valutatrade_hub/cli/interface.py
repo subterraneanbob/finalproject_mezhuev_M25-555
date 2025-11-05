@@ -1,12 +1,10 @@
 import shlex
 from enum import StrEnum
 
-from ..core import (
+from valutatrade_hub.core import (
     ApiRequestError,
     CurrencyNotFoundError,
     UserError,
-)
-from ..core.usecases import (
     buy,
     get_available_currencies,
     get_rate,
