@@ -1,18 +1,23 @@
 import logging
 import os
+from enum import StrEnum
 from logging.handlers import RotatingFileHandler
 
 from valutatrade_hub.infra import Settings
 
-LOG_LEVEL = "INFO"
-LOG_LEVEL2 = logging.INFO
-LOG_FILE_NAME = "actions.log"
-LOG_FORMAT = "text"  # text | json
-LOG_BACKUP_COUNT = 5  # Максимальное количество логов.
 
-# Политика ротации
-LOG_MAX_SIZE = 2 * 1024 * 1024  # Если файл больше 2 MiB.
-LOG_TIME_LIMIT = 86400  # Если последняя запись была больше 24 часов назад.
+class LogFormat(StrEnum):
+    JSON = "json"
+    Text = "text"
+
+
+LOG_LEVEL = logging.INFO
+# Формат - JSON или текст
+LOG_FORMAT = LogFormat.Text
+# Максимальное количество файлов при ротации
+LOG_BACKUP_COUNT = 5
+# Ротация файлов, если файл больше 2 MiB
+LOG_MAX_SIZE = 2 * 1024 * 1024
 
 
 def setup_logger(name: str):
@@ -22,7 +27,7 @@ def setup_logger(name: str):
     log_file_path = os.path.join(settings.LOG_PATH, f"{name}.log")
 
     logger = logging.getLogger(name)
-    logger.setLevel(LOG_LEVEL2)
+    logger.setLevel(LOG_LEVEL)
 
     file_handler = RotatingFileHandler(
         log_file_path,
@@ -30,10 +35,14 @@ def setup_logger(name: str):
         backupCount=LOG_BACKUP_COUNT,
         encoding="utf-8",
     )
-    formatter = logging.Formatter(
-        "%(levelname)s %(asctime)s %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%S%z",
-    )
+
+    if LOG_FORMAT == LogFormat.JSON:
+        formatter = logging.Formatter("%(message)s")
+    else:
+        formatter = logging.Formatter(
+            "%(levelname)s %(asctime)s %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%S%z",
+        )
     file_handler.setFormatter(formatter)
 
     logger.addHandler(file_handler)

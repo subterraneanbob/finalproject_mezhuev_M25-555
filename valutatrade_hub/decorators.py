@@ -1,9 +1,8 @@
 import inspect
 import json
-import os
 from datetime import datetime, timezone
 from functools import wraps
-from time import time
+from logging import getLevelName
 from typing import Any
 
 from valutatrade_hub.core.utils import (
@@ -11,16 +10,8 @@ from valutatrade_hub.core.utils import (
     format_datetime_iso,
     format_exchange_rate,
 )
-from valutatrade_hub.infra import Settings
 
-from .logging_config import (
-    LOG_BACKUP_COUNT,
-    LOG_FILE_NAME,
-    LOG_FORMAT,
-    LOG_LEVEL,
-    LOG_MAX_SIZE,
-    LOG_TIME_LIMIT,
-)
+from .logging_config import LOG_FORMAT, LOG_LEVEL, LogFormat, actions_logger
 
 
 def log_action(verbose: bool = False):
@@ -36,10 +27,11 @@ def log_action(verbose: bool = False):
 
         entry = {}
 
-        entry["level"] = LOG_LEVEL
-        entry["timestamp"] = format_datetime_iso(datetime.now(timezone.utc))
-        entry["action"] = action
+        if LOG_FORMAT == LogFormat.JSON:
+            entry["level"] = getLevelName(LOG_LEVEL)
+            entry["timestamp"] = format_datetime_iso(datetime.now(timezone.utc))
 
+        entry["action"] = action
         if user := kwargs.get("user"):
             entry["user"] = user.username
 
@@ -63,49 +55,15 @@ def log_action(verbose: bool = False):
             case _:
                 return f"{name}='{value}'"
 
-    def get_log_file_path() -> str:
-        """
-        Формирует путь к файлу лога. Создаёт директорию для хранения файлов,
-        если она не существует.
-        """
-
-        log_dir = Settings().LOG_PATH
-        os.makedirs(log_dir, exist_ok=True)
-
-        return os.path.join(log_dir, LOG_FILE_NAME)
-
-    def ensure_rotated(file_path: str):
-        """
-        Производит ротацию лог файлов при необходимости.
-        """
-        if not os.path.exists(file_path):
-            return
-
-        file_size = os.path.getsize(file_path)
-        file_last_modified = os.path.getmtime(file_path)
-
-        if file_size > LOG_MAX_SIZE or time() - file_last_modified > LOG_TIME_LIMIT:
-            for i in range(LOG_BACKUP_COUNT - 1, 0, -1):
-                src = f"{file_path}.{i}"
-                dst = f"{file_path}.{i + 1}"
-                if os.path.exists(src):
-                    os.replace(src, dst)
-
-            os.replace(file_path, f"{file_path}.1")
-
-    def write_log_entry(entry: dict):
-        """Добавляет новую запись в лог файл."""
+    def produce_log_entry(entry: dict) -> str:
+        """Преобразует запись в строковое представление."""
 
         if LOG_FORMAT == "json":
             line = json.dumps(entry, ensure_ascii=False)
         else:
             line = " ".join(format_text_part(k, v) for k, v in entry.items())
 
-        file_path = get_log_file_path()
-        ensure_rotated(file_path)
-
-        with open(file_path, "a", encoding="utf-8") as log_file:
-            print(line, file=log_file)
+        return line
 
     def decorator(func):
         @wraps(func)
@@ -128,10 +86,13 @@ def log_action(verbose: bool = False):
                 entry |= context
 
             entry["status"] = "ERROR" if error else "OK"
-            write_log_entry(entry)
 
+            log_entry = produce_log_entry(entry)
             if error:
+                actions_logger.error(log_entry)
                 raise error
+            else:
+                actions_logger.info(log_entry)
 
             return result
 
