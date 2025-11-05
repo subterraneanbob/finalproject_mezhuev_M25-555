@@ -4,7 +4,8 @@ from functools import wraps
 from typing import Any
 
 from valutatrade_hub.decorators import log_action
-from valutatrade_hub.infra import ConfigKey, SettingsLoader
+from valutatrade_hub.infra import Settings
+from valutatrade_hub.parser_service import UpdateSource, get_updater
 
 from .currencies import (
     AVAILABLE_CURRENCIES,
@@ -222,8 +223,7 @@ def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
 
 
 def _get_base_currency() -> str:
-    settings = SettingsLoader()
-    base_currency = settings.get(ConfigKey.BASE_CURRENCY, "USD")
+    base_currency = Settings().BASE_CURRENCY
     get_currency(base_currency)
 
     return base_currency

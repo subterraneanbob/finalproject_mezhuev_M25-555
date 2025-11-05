@@ -11,7 +11,7 @@ from valutatrade_hub.core.utils import (
     format_datetime_iso,
     format_exchange_rate,
 )
-from valutatrade_hub.infra import ConfigKey, SettingsLoader
+from valutatrade_hub.infra import Settings
 
 from .logging_config import (
     LOG_BACKUP_COUNT,
@@ -69,8 +69,7 @@ def log_action(verbose: bool = False):
         если она не существует.
         """
 
-        settings = SettingsLoader()
-        log_dir = settings.get(ConfigKey.LOG_PATH, "logs")
+        log_dir = Settings().LOG_PATH
         os.makedirs(log_dir, exist_ok=True)
 
         return os.path.join(log_dir, LOG_FILE_NAME)

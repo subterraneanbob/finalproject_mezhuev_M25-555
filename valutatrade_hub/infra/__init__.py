@@ -1,14 +1,16 @@
-from .settings import SettingsLoader  # noqa: F401
+from dataclasses import dataclass
+
+from .settings import SettingsLoader
 
 
-class ConfigKey:
-    """Известные ключи конфигурации, по которым можно получить конкретное значение."""
+@dataclass
+class Settings:
+    BASE_CURRENCY: str
+    DATA_PATH: str
+    LOG_PATH: str
 
-    """Базовая валюта."""
-    BASE_CURRENCY = "base_currency"
-
-    """Путь к директории с данными."""
-    DATA_PATH = "data_path"
-
-    """Путь к директории с логами."""
-    LOG_PATH = "log_path"
+    def __init__(self):
+        settings = SettingsLoader()
+        self.BASE_CURRENCY = settings.get("base_currency", "USD")
+        self.DATA_PATH = settings.get("data_path", "data/")
+        self.LOG_PATH = settings.get("log_path", "logs/")

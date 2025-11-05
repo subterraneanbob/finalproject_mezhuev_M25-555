@@ -2,7 +2,7 @@ import json
 import os
 from typing import Any, Callable
 
-from valutatrade_hub.infra import ConfigKey, SettingsLoader
+from valutatrade_hub.infra import Settings
 
 from .settings import SingletonMeta
 
@@ -18,8 +18,7 @@ class DatabaseManager(metaclass=SingletonMeta):
         Создаёт объект DatabaseManager и директорию, где хранятся данные.
         Путь к директории с данными берётся из конфигурации.
         """
-        settings = SettingsLoader()
-        self.data_path = settings.get(ConfigKey.DATA_PATH, "data")
+        self.data_path = Settings().DATA_PATH
         os.makedirs(self.data_path, exist_ok=True)
 
     def load(
