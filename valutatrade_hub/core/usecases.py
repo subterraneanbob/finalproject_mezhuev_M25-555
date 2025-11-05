@@ -15,6 +15,7 @@ from .models import ExchangeRates, Portfolio, User, Wallet
 from .utils import (
     AmountMaxWidth,
     format_currency,
+    format_datetime,
     format_exchange_rate,
     generate_salt,
 )
@@ -479,7 +480,7 @@ def get_rate(from_currency: str, to_currency: str):
 
     print(
         f"Курс {from_currency}->{to_currency}: {format_exchange_rate(rate)} "
-        f"(обновлено: {updated_at:%Y-%m-%d %H:%M:%S})"
+        f"(обновлено: {format_datetime(updated_at)})"
     )
 
     print(
@@ -496,3 +497,31 @@ def get_available_currencies():
     for code in AVAILABLE_CURRENCIES:
         currency = get_currency(code)
         print(currency.get_display_info())
+
+
+def update_rates(source: str = ""):
+    """
+    Выполняет обновление курсов обменов валют, используя внешние сервисы для
+    получения данных.
+
+    Args:
+        source (str): Источник обновлений.
+    """
+    if source not in UpdateSource:
+        print(f"Неизвестный источник обновления: '{source}'")
+        return
+
+    updater = get_updater(UpdateSource(source))
+    result = updater.run_update()
+
+    if result.has_errors:
+        print(
+            "Обновление завершено с ошибками. "
+            "Подробности смотрите в файле logs/parser.log."
+        )
+    else:
+        print(
+            "Обновление выполнено успешно. "
+            f"Всего обновлено курсов: {result.rates_updated}. "
+            f"Последнее обновление: {format_datetime(result.last_refresh)}."
+        )

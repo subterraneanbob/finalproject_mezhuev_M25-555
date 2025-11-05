@@ -105,12 +105,27 @@ def validate_amount(amount: float, attr_name: str = "amount"):
 
 def format_datetime_iso(datetime: datetime) -> str:
     """
-    Форматирует значение `datetime` с точностью до секунды.
+    Форматирует значение `datetime` с точностью до секунды в формате ISO.
 
     Args:
         datetime (datetime): Объект `datetime`.
 
     Returns:
-        str: Строковое представление объекта `datetime` в формате ISO.
+        str: Строковое представление объекта `datetime`.
     """
     return datetime.isoformat(timespec="seconds")
+
+
+def format_datetime(datetime: datetime) -> str:
+    """
+    Форматирует значение `datetime` с точностью до секунды в виде, удобном для
+    чтения человеком.
+
+    Args:
+        datetime (datetime): Объект `datetime`.
+
+    Returns:
+        str: Строковое представление объекта `datetime`.
+    """
+    local_time = datetime.astimezone()
+    return f"{local_time:%Y-%m-%d %H:%M:%S}"

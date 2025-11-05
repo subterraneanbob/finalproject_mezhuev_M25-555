@@ -14,6 +14,7 @@ from ..core.usecases import (
     register,
     sell,
     show_portfolio,
+    update_rates,
 )
 
 
@@ -25,6 +26,7 @@ class Command(StrEnum):
     BUY = "buy"
     SELL = "sell"
     GET_RATE = "get-rate"
+    UPDATE_RATES = "update-rates"
     HELP = "help"
 
 
@@ -80,6 +82,17 @@ COMMANDS_REFERENCE = {
         ),
         "--from BTC --to USD",
     ),
+    Command.UPDATE_RATES: (
+        "Обновление курсов обмена валют.",
+        "--source <строка>",
+        (
+            (
+                "--source - источник обновления: coingecko или exchangerate "
+                "(необязателен, использует все источники по умолчанию)"
+            ),
+        ),
+        "--source coingecko",
+    ),
     Command.HELP: ("Показывает справку о команде.", "<команда>", "", ""),
     Command.QUIT: ("Выход из программы.", "", "", ""),
 }
@@ -105,8 +118,7 @@ def print_help():
 
 def print_command_reference(command: str):
     if command not in ALL_COMMANDS:
-        print("Неизвестная команда:")
-        print(f"   {command}")
+        print(f"Неизвестная команда: {command}")
         return
 
     description, usage, args, example = COMMANDS_REFERENCE[Command(command)]
@@ -173,6 +185,10 @@ def handle_command(command: str):
                 sell(currency, amount)
         case ["get-rate", "--from", from_currency, "--to", to_currency]:
             get_rate(from_currency, to_currency)
+        case [Command.UPDATE_RATES, "--source", source]:
+            update_rates(source)
+        case [Command.UPDATE_RATES]:
+            update_rates()
         case [Command.HELP]:
             print_help()
         case [Command.HELP, cmd]:
@@ -194,11 +210,8 @@ def run():
     while (command := get_command()) != Command.QUIT:
         try:
             handle_command(command)
-        except ApiRequestError:
-            print(
-                "Не удаётся получить данные. Проверьте сетевое подключение "
-                "и повторите запрос."
-            )
+        except ApiRequestError as e:
+            print(f"Не удаётся получить данные от веб-сервиса. {e}")
         except CurrencyNotFoundError as e:
             print(e)
             get_available_currencies()
