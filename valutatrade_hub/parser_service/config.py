@@ -30,7 +30,7 @@ class ParserConfig:
         }
     )
 
-    RATES_FILE_PATH: str = "data/rates.json"
-    HISTORY_FILE_PATH: str = "data/exchange_rates.json"
+    RATES_FILE: str = "rates.json"
+    HISTORY_FILE: str = "exchange_rates.json"
 
     REQUEST_TIMEOUT: int = 10

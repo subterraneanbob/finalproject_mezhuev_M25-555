@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -315,11 +316,12 @@ class ExchangeRates:
         self,
         source: str,
         last_refresh: datetime,
-        rates: dict[tuple[str, str], ExchangeRate],
+        rates: Iterable[ExchangeRate],
     ):
         self.source = source
         self.last_refresh = last_refresh
-        self._rates = rates
+        self._rates: dict[tuple[str, str], ExchangeRate] = {}
+        self.update(rates)
 
     @classmethod
     def load(cls) -> Self:
@@ -338,21 +340,71 @@ class ExchangeRates:
                     return ExchangeRate("", "", rate, updated_at)
                 case {"source": source, "last_refresh": last_refresh, **rates_data}:
                     last_refresh = datetime.fromisoformat(last_refresh)
-                    rates = {}
 
+                    rates = []
                     for key, exchange_rate in rates_data.items():
-                        currency_pair = tuple(key.split("_", maxsplit=1))
-                        exchange_rate.from_currency = currency_pair[0]
-                        exchange_rate.to_currency = currency_pair[1]
-                        rates[currency_pair] = exchange_rate
-                        rates[currency_pair[::-1]] = exchange_rate.reciprocal()
+                        from_currency, to_currency = tuple(key.split("_", maxsplit=1))
+                        exchange_rate.from_currency = from_currency
+                        exchange_rate.to_currency = to_currency
+                        rates.append(exchange_rate)
 
                     return cls(source, last_refresh, rates)
                 case _:
                     return dct
 
+        def default_rates():
+            return ExchangeRates("", datetime.min, [])
+
         database = DatabaseManager()
-        return database.load(cls.DATA_FILE, decode_rates, dict)
+        return database.load(cls.DATA_FILE, decode_rates, default_rates)
+
+    @classmethod
+    def save(cls, rates: Self):
+        """
+        Сохраняет курсы валют в файла.
+
+        Args:
+            rates (ExchangeRates): Данные о курсах обмена валют.
+        """
+
+        def encode_rates(obj):
+            match obj:
+                case ExchangeRates():
+                    result: dict = {
+                        f"{rate_obj.from_currency}_{rate_obj.to_currency}": {
+                            "rate": rate_obj.rate,
+                            "updated_at": format_datetime_iso(rate_obj.updated_at),
+                        }
+                        for rate_obj in obj.rates
+                    }
+                    result["source"] = obj.source
+                    result["last_refresh"] = format_datetime_iso(obj.last_refresh)
+
+                    return result
+                case _:
+                    return obj
+
+        database = DatabaseManager()
+        database.save(cls.DATA_FILE, rates, encode_rates)
+
+    @property
+    def rates(self) -> list[ExchangeRate]:
+        """list[ExchangeRate]: Копия списка курсов обмена валют."""
+        return deepcopy(list(self._rates.values()))
+
+    def update(self, new_rates: Iterable[ExchangeRate]):
+        """
+        Обновляет курсы валют, используя предоставленные данные. Обновление
+        производится только если время обновления позже уже существующего.
+
+        Args:
+            new_rates (Iterable[ExchangeRate]): Новые данные курсов обмена.
+        """
+        for new_rate in new_rates:
+            key = (new_rate.from_currency, new_rate.to_currency)
+            existing_rate = self._rates.setdefault(key, new_rate)
+            if new_rate.updated_at > existing_rate.updated_at:
+                self._rates[key] = new_rate
 
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> ExchangeRate:
         """
@@ -363,7 +415,6 @@ class ExchangeRates:
             to_currency (str): Код валюты, в которую происходит конвертация.
 
         Raises:
-            CurrencyNotFoundError: Если неизвестный код валюты.
             ExchangeRateUnavailableError: Если курс обмена не доступен.
 
         Returns:
@@ -375,11 +426,15 @@ class ExchangeRates:
                 from_currency, from_currency, 1.0, datetime.now(timezone.utc)
             )
 
-        if (from_currency, to_currency) not in self._rates:
-            raise ExchangeRateUnavailableError(from_currency)
+        # Есть прямой курс обмена
+        if exchange_rate := self._rates.get((from_currency, to_currency)):
+            return exchange_rate
 
-        exchange_rate = self._rates[(from_currency, to_currency)]
-        return exchange_rate
+        # Есть обратный курс обмена
+        if exchange_rate := self._rates.get((to_currency, from_currency)):
+            return exchange_rate.reciprocal()
+
+        raise ExchangeRateUnavailableError(from_currency)
 
 
 class Portfolio:
