@@ -25,7 +25,7 @@ class DatabaseManager(metaclass=SingletonMeta):
     def load(
         self,
         file_name: str,
-        decode_func: Callable,
+        decode_func: Callable | None = None,
         default_func: Callable = list,
     ) -> Any:
         """
@@ -35,8 +35,8 @@ class DatabaseManager(metaclass=SingletonMeta):
 
         Args:
             file_name (str): Имя файла, из которого загружаются данные.
-            decode_func (Callable): Функция, которая преобразует переданный словарь в
-            определённый объект и возвращает его.
+            decode_func (Callable, optional): Функция, которая преобразует переданный
+            словарь в определённый объект и возвращает его.
             default_func (Callable, optional): Функция, которая конструирует
             значение, возвращаемое если файл не найден.
 
@@ -51,7 +51,7 @@ class DatabaseManager(metaclass=SingletonMeta):
         except FileNotFoundError:
             return default_func()
 
-    def save(self, file_name: str, data, encode_func: Callable):
+    def save(self, file_name: str, data, encode_func: Callable | None = None):
         """
         Сохраняет объект в указанный файл, пользуясь указанной функцией `encode_func`
         для перевода объектов в словари для записи в формате JSON.
@@ -59,8 +59,8 @@ class DatabaseManager(metaclass=SingletonMeta):
         Args:
             file_name (str): Имя файла, в который данные сохранятся.
             data: Объект или список объектов, которые требуется сохранить.
-            encode_func (Callable): Функция, которая преобразует переданный
-            объект в словарь и возвращает его.
+            encode_func (Callable, optional): Функция, которая преобразует
+            переданный объект в словарь и возвращает его.
         """
         file_path = os.path.join(self.data_path, file_name)
         with open(file_path, "w", encoding="utf-8") as json_file:
