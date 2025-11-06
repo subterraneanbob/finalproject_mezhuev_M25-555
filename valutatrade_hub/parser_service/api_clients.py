@@ -55,6 +55,8 @@ class BaseApiClient(ABC):
                 error_message = "Сервис недоступен. Повторите попытку позже."
             case HTTPStatus.FORBIDDEN:
                 error_message = "Доступ запрещён."
+            case HTTPStatus.UNAUTHORIZED:
+                error_message = "Требуется авторизация."
             case code if code >= 400:
                 error_message = f"Ошибка при обращении к сервису: {response.reason}"
 
