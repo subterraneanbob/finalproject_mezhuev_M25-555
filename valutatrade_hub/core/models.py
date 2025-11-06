@@ -95,7 +95,7 @@ class User:
             users.append(user)
 
         database = DatabaseManager()
-        database.save(cls.DATA_FILE, users, encode_func=encode_user)
+        database.save(cls.DATA_FILE, users, encode_func=encode_user, use_temp_file=True)
 
     @classmethod
     def find(cls, **filters) -> Self | None:
@@ -386,7 +386,7 @@ class ExchangeRates:
                     return obj
 
         database = DatabaseManager()
-        database.save(cls.DATA_FILE, rates, encode_rates)
+        database.save(cls.DATA_FILE, rates, encode_rates, use_temp_file=True)
 
     @property
     def rates(self) -> list[ExchangeRate]:
@@ -528,7 +528,9 @@ class Portfolio:
             portfolios.append(portfolio)
 
         database = DatabaseManager()
-        database.save(cls.DATA_FILE, portfolios, encode_func=encode_portfolio)
+        database.save(
+            cls.DATA_FILE, portfolios, encode_func=encode_portfolio, use_temp_file=True
+        )
 
     @property
     def user(self) -> User | None:
