@@ -75,9 +75,15 @@ class Settings:
     BASE_CURRENCY: str
     DATA_PATH: str
     LOG_PATH: str
+    RATES_TTL_SECONDS: int
+    AUTO_UPDATE_RATES: bool
+    SHOW_DATED_RATES: bool
 
     def __init__(self):
         settings = SettingsLoader()
         self.BASE_CURRENCY = settings.get("base_currency", "USD")
         self.DATA_PATH = settings.get("data_path", "data/")
         self.LOG_PATH = settings.get("log_path", "logs/")
+        self.RATES_TTL_SECONDS = settings.get("rates_ttl_seconds", 300)
+        self.AUTO_UPDATE_RATES = settings.get("auto_update_rates", True)
+        self.SHOW_DATED_RATES = settings.get("show_dated_rates", True)

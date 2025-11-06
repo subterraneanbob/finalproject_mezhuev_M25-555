@@ -28,8 +28,10 @@ ignore = []
 [tool.valutatrade]
 data_path = "data/"
 log_path = "logs/"
-rates_ttl_seconds = 300
 base_currency = "USD"
+rates_ttl_seconds = 300
+auto_update_rates = true
+show_dated_rates = false
 
 [build-system]
 requires = ["poetry-core"]

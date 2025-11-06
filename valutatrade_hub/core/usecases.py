@@ -1,5 +1,5 @@
 import inspect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import Any
 
@@ -475,9 +475,23 @@ def get_rate(from_currency: str, to_currency: str):
     exchange_rates = ExchangeRates.load()
     exchange_rate = exchange_rates.get_exchange_rate(from_currency, to_currency)
 
+    settings = Settings()
+
+    if datetime.now(timezone.utc) - exchange_rates.last_refresh > timedelta(
+        seconds=settings.RATES_TTL_SECONDS
+    ):
+        print("Данные о курсах обменов валют устарели.")
+        if settings.AUTO_UPDATE_RATES:
+            print("Выполняется обновление.")
+            if not update_rates():
+                return
+        elif not settings.SHOW_DATED_RATES:
+            print("Обновите их с помощью команды update-rates.")
+            return
+
     rate = float(exchange_rate)
     reciprocal_rate = float(exchange_rate.reciprocal())
-    updated_at = exchange_rate.updated_at
+    updated_at = exchange_rates.last_refresh
 
     print(
         f"Курс {from_currency}->{to_currency}: {format_exchange_rate(rate)} "
@@ -500,17 +514,20 @@ def get_available_currencies():
         print(currency.get_display_info())
 
 
-def update_rates(source: str = ""):
+def update_rates(source: str = "") -> bool:
     """
     Выполняет обновление курсов обменов валют, используя внешние сервисы для
     получения данных.
 
     Args:
         source (str): Источник обновлений.
+
+    Returns:
+        bool: True, если обновление прошло без ошибок.
     """
     if source not in UpdateSource:
         print(f"Неизвестный источник обновления: '{source}'")
-        return
+        return False
 
     updater = get_updater(UpdateSource(source))
     result = updater.run_update()
@@ -526,6 +543,8 @@ def update_rates(source: str = ""):
             f"Всего обновлено курсов: {result.rates_updated}. "
             f"Последнее обновление: {format_datetime(result.last_refresh)}."
         )
+
+    return not result.has_errors
 
 
 def show_rates(*, currency: str = "", top: int | None = None, base_currency: str = ""):
