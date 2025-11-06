@@ -104,7 +104,7 @@ class CoinGeckoClient(BaseApiClient):
                 self.config.CRYPTO_ID_MAP[code]
                 for code in self.config.CRYPTO_CURRENCIES
             ),
-            "vs_currencies": self.config.BASE_CURRENCY,
+            "vs_currencies": ",".join(self.config.FIAT_CURRENCIES),
         }
 
         try:
@@ -167,10 +167,10 @@ class ExchangeRateApiClient(BaseApiClient):
         if error_message:
             raise ApiRequestError(error_message)
 
-    def fetch_rates(self) -> list[ExchangeRate]:
+    def _fetch_rates_data(self, base_currency: str) -> list[ExchangeRate]:
         try:
             response = get(
-                self.config.EXCHANGERATE_API_URL + self.config.BASE_CURRENCY,
+                self.config.EXCHANGERATE_API_URL + base_currency,
                 timeout=self.config.REQUEST_TIMEOUT,
             )
         except RequestException:
@@ -186,15 +186,22 @@ class ExchangeRateApiClient(BaseApiClient):
             "time_last_update_unix", datetime.now(timezone.utc).timestamp()
         )
         updated_at = datetime.fromtimestamp(updated_at_ts, timezone.utc)
-        base_currency = self.config.BASE_CURRENCY
 
         return [
             ExchangeRate(
-                currency.upper(),
                 base_currency.upper(),
+                currency.upper(),
                 float(rate),
                 updated_at,
             )
             for currency, rate in rates.items()
-            if currency in self.config.FIAT_CURRENCIES
+            if currency in self.config.FIAT_CURRENCIES and currency != base_currency
         ]
+
+    def fetch_rates(self) -> list[ExchangeRate]:
+        result = [
+            self._fetch_rates_data(base_currency)
+            for base_currency in self.config.FIAT_CURRENCIES
+        ]
+
+        return sum(result, [])
