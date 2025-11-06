@@ -11,5 +11,6 @@ from .usecases import (  # noqa: F401
     register,
     sell,
     show_portfolio,
+    show_rates,
     update_rates,
 )

@@ -12,6 +12,7 @@ from valutatrade_hub.core import (
     register,
     sell,
     show_portfolio,
+    show_rates,
     update_rates,
 )
 
@@ -25,6 +26,7 @@ class Command(StrEnum):
     SELL = "sell"
     GET_RATE = "get-rate"
     UPDATE_RATES = "update-rates"
+    SHOW_RATES = "show-rates"
     HELP = "help"
 
 
@@ -91,6 +93,16 @@ COMMANDS_REFERENCE = {
         ),
         "--source coingecko",
     ),
+    Command.SHOW_RATES: (
+        "Показать список актуальных курсов из локального кэша.",
+        "--currency <строка> --top <число> --base <строка>",
+        (
+            "--currency - курс только для указанной валюты",
+            "--top      - показать указанное количество самых дорогих криптовалют",
+            "--base     - курсы относительно указанной базовой валюты",
+        ),
+        "--top 3 --base RUB",
+    ),
     Command.HELP: ("Показывает справку о команде.", "<команда>", "", ""),
     Command.QUIT: ("Выход из программы.", "", "", ""),
 }
@@ -103,6 +115,21 @@ def _parse_amount(float_str: str) -> float | None:
         return float(float_str)
     except ValueError:
         print("Неверное значение для 'amount'. Введите число.")
+
+
+def _parse_int(int_str: str, arg_name: str) -> int | None:
+    try:
+        return int(int_str)
+    except ValueError:
+        print(f"Неверное значение для параметра '{arg_name}'. Введите целое число.")
+
+
+def _parse_base(base_args: list[str]) -> str | None:
+    match base_args:
+        case ["--base", base]:
+            return base
+        case []:
+            return ""
 
 
 def print_help():
@@ -187,6 +214,18 @@ def handle_command(command: str):
             update_rates(source)
         case [Command.UPDATE_RATES]:
             update_rates()
+        case [Command.SHOW_RATES as cmd, "--currency", currency, *base_args] if (
+            base := _parse_base(base_args)
+        ) is not None:
+            show_rates(currency=currency, base_currency=base)
+        case [Command.SHOW_RATES as cmd, "--top", top, *base_args] if (
+            base := _parse_base(base_args)
+        ) is not None and (top := _parse_int(top, "top")) is not None:
+            show_rates(top=top, base_currency=base)
+        case [Command.SHOW_RATES as cmd, *base_args] if (
+            base := _parse_base(base_args)
+        ) is not None:
+            show_rates(base_currency=base)
         case [Command.HELP]:
             print_help()
         case [Command.HELP, cmd]:

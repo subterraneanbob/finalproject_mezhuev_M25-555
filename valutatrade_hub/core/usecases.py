@@ -13,11 +13,12 @@ from .currencies import (
 )
 from .models import ExchangeRates, Portfolio, User, Wallet
 from .utils import (
-    AmountMaxWidth,
+    amount_max_width,
     format_currency,
     format_datetime,
     format_exchange_rate,
     generate_salt,
+    rate_max_width,
 )
 
 
@@ -130,8 +131,8 @@ def _buy_currency(
 
     after_amount, after_amount_bc = wallet.balance, wallet_bc.balance
 
-    max_width_before = int(AmountMaxWidth((before_amount, before_amount_bc)))
-    max_width_after = int(AmountMaxWidth((after_amount, after_amount_bc)))
+    max_width_before = int(amount_max_width((before_amount, before_amount_bc)))
+    max_width_after = int(amount_max_width((after_amount, after_amount_bc)))
 
     print(
         f"Покупка выполнена: {format_currency(amount)} {currency} "
@@ -178,8 +179,8 @@ def _sell_currency(
 
     after_amount, after_amount_bc = wallet.balance, wallet_bc.balance
 
-    max_width_before = int(AmountMaxWidth((before_amount, before_amount_bc)))
-    max_width_after = int(AmountMaxWidth((after_amount, after_amount_bc)))
+    max_width_before = int(amount_max_width((before_amount, before_amount_bc)))
+    max_width_after = int(amount_max_width((after_amount, after_amount_bc)))
 
     print(
         f"Продажа выполнена: {format_currency(amount)} {currency} "
@@ -223,8 +224,8 @@ def _print_portfolio_changes(*args: tuple[str, float, float, int, int]):
         )
 
 
-def _get_base_currency() -> str:
-    base_currency = Settings().BASE_CURRENCY
+def _get_base_currency_or_default(currency: str = "") -> str:
+    base_currency = currency or Settings().BASE_CURRENCY
     get_currency(base_currency)
 
     return base_currency
@@ -260,7 +261,7 @@ def register(username: str, password: str):
     new_user.change_password(password)
     User.save(new_user)
 
-    base_currency = _get_base_currency()
+    base_currency = _get_base_currency_or_default()
 
     new_portfolio = Portfolio(user_id, {})
     new_portfolio.add_currency(base_currency)
@@ -295,7 +296,7 @@ def login(username: str, password: str):
 
 
 @UserSession.authorize()
-def show_portfolio(base_currency: str | None = None, user: Any = ...):
+def show_portfolio(base_currency: str = "", user: Any = ...):
     """
     Показывает информацию о всех кошельках и итоговую стоимость в базовой валюте
     (указывается в конфигурации).
@@ -308,7 +309,7 @@ def show_portfolio(base_currency: str | None = None, user: Any = ...):
         CurrencyNotFoundError: Если код валюты неизвестен.
     """
 
-    base_currency = base_currency or _get_base_currency()
+    base_currency = _get_base_currency_or_default(base_currency)
     portfolio = Portfolio.find(user.user_id)
     wallets = portfolio.wallets
 
@@ -318,8 +319,8 @@ def show_portfolio(base_currency: str | None = None, user: Any = ...):
 
     # Максимальная длина значения баланса в валюте кошелька и в базовой
     # для выравнивания при выводе.
-    max_width = AmountMaxWidth()
-    max_width_bc = AmountMaxWidth()
+    max_width = amount_max_width()
+    max_width_bc = amount_max_width()
 
     exchange_rates = ExchangeRates.load()
     total_value = portfolio.get_total_value(exchange_rates, base_currency)
@@ -370,7 +371,7 @@ def buy(
         ExchangeRateUnavailableError: Если недоступен курс обмена валют.
     """
     get_currency(currency)
-    base_currency = _get_base_currency()
+    base_currency = _get_base_currency_or_default()
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
@@ -426,7 +427,7 @@ def sell(
     """
 
     get_currency(currency)
-    base_currency = _get_base_currency()
+    base_currency = _get_base_currency_or_default()
 
     exchange_rates = ExchangeRates.load()
     rate = float(exchange_rates.get_exchange_rate(currency, base_currency))
@@ -524,4 +525,45 @@ def update_rates(source: str = ""):
             "Обновление выполнено успешно. "
             f"Всего обновлено курсов: {result.rates_updated}. "
             f"Последнее обновление: {format_datetime(result.last_refresh)}."
+        )
+
+
+def show_rates(*, currency: str = "", top: int | None = None, base_currency: str = ""):
+    """
+    Выводит локальные курсы обмена валют из кэша.
+
+    Args:
+        currency (str, optional): Показать курс только для указанной валюты.
+        top (str, optional): Показать указанное количество самых дорогих валют.
+        base_currency (str, optional): Показать курсы обмена в указанную базовую валюту.
+    """
+    base_currency = _get_base_currency_or_default(base_currency)
+
+    if currency:
+        get_currency(currency)
+        currencies = [currency]
+    else:
+        currencies = sorted(c for c in AVAILABLE_CURRENCIES if c != base_currency)
+
+    rates = ExchangeRates.load()
+    items = []
+    max_width = rate_max_width()
+
+    for currency in currencies:
+        exchange_rate = rates.get_exchange_rate(currency, base_currency)
+        items.append(exchange_rate)
+        max_width.update(float(exchange_rate))
+
+    if top is not None:
+        items = sorted(items, key=lambda rate: (-float(rate), rate.from_currency))[:top]
+
+    print(
+        f"Курсы обмена валют из кэша (обновлялся {format_datetime(rates.last_refresh)})"
+    )
+
+    width = int(max_width)
+    for item in items:
+        print(
+            f"- {item.from_currency}->{item.to_currency}: "
+            f"{format_exchange_rate(item.rate, width)}"
         )
