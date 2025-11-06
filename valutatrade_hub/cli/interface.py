@@ -30,80 +30,111 @@ class Command(StrEnum):
     HELP = "help"
 
 
+class Argument(StrEnum):
+    USERNAME = "--username"
+    PASSWORD = "--password"
+    BASE = "--base"
+    CURRENCY = "--currency"
+    AMOUNT = "--amount"
+    FROM = "--from"
+    TO = "--to"
+    SOURCE = "--source"
+    TOP = "--top"
+
+
 COMMANDS_REFERENCE = {
     Command.REGISTER: (
         "Регистрация нового пользователя.",
-        "--username <строка> --password <строка>",
+        ("--username <строка> --password <строка>",),
         (
             "--username - имя пользователя (обязателен)",
             "--password - пароль (обязателен)",
         ),
-        "--username alice --password 1234",
+        ("--username alice --password 1234",),
     ),
     Command.LOGIN: (
         "Авторизация уже существующего пользователя.",
-        "--username <строка> --password <строка>",
+        ("--username <строка> --password <строка>",),
         (
             "--username - имя пользователя (обязателен)",
             "--password - пароль (обязателен)",
         ),
-        "--username alice --password 1234",
+        ("--username alice --password 1234",),
     ),
     Command.SHOW_PORTFOLIO: (
         "Печать информации о портфеле пользователя.",
-        "--base <строка>",
+        (
+            "",
+            "--base <строка>",
+        ),
         ("--base - базовая валюта конвертации (необязателен, по умолчанию USD)",),
-        "--base RUB",
+        (
+            "",
+            "--base RUB",
+        ),
     ),
     Command.BUY: (
         "Покупка или зачисление валюты.",
-        "--currency <строка> --amount <число>",
+        ("--currency <строка> --amount <число>",),
         (
             "--currency - код покупаемой валюты (обязателен)",
             "--amount   - сумма покупаемой валюты (обязателен)",
         ),
-        "--currency JPY --amount 50000",
+        ("--currency JPY --amount 50000",),
     ),
     Command.SELL: (
         "Продажа или вывод валюты.",
-        "--currency <строка> --amount <число>",
+        ("--currency <строка> --amount <число>",),
         (
             "--currency - код продаваемой валюты (обязателен)",
             "--amount   - сумма продаваемой валюты (обязателен)",
         ),
-        "--currency EUR --amount 2300",
+        ("--currency EUR --amount 2300",),
     ),
     Command.GET_RATE: (
         "Получение курса валюты.",
-        "--from <строка> --to <строка>",
+        ("--from <строка> --to <строка>",),
         (
             "--from - код исходной валюты (обязателен)",
             "--to   - код целевой валюты (обязателен)",
         ),
-        "--from BTC --to USD",
+        ("--from BTC --to USD",),
     ),
     Command.UPDATE_RATES: (
         "Обновление курсов обмена валют.",
-        "--source <строка>",
+        (
+            "",
+            "--source <строка>",
+        ),
         (
             (
                 "--source - источник обновления: coingecko или exchangerate "
                 "(необязателен, использует все источники по умолчанию)"
             ),
         ),
-        "--source coingecko",
+        ("", "--source coingecko", "--source exchangerate"),
     ),
     Command.SHOW_RATES: (
         "Показать список актуальных курсов из локального кэша.",
-        "--currency <строка> --top <число> --base <строка>",
+        (
+            "--currency <строка> --base <строка>",
+            "--top <число> --base <строка>",
+        ),
         (
             "--currency - курс только для указанной валюты",
             "--top      - показать указанное количество самых дорогих криптовалют",
             "--base     - курсы относительно указанной базовой валюты",
         ),
-        "--top 3 --base RUB",
+        (
+            "",
+            "--base EUR",
+            "--currency BTC",
+            "--currency BTC --base GBP",
+            "--top 3",
+            "--top 5 --base RUB",
+        ),
     ),
-    Command.HELP: ("Показывает справку о команде.", "<команда>", "", ""),
+    Command.HELP: ("Показывает справку о команде.", ("<команда>",), "", ""),
     Command.QUIT: ("Выход из программы.", "", "", ""),
 }
 
@@ -114,19 +145,19 @@ def _parse_amount(float_str: str) -> float | None:
     try:
         return float(float_str)
     except ValueError:
-        print("Неверное значение для 'amount'. Введите число.")
+        print("Неверное значение для параметра 'amount'. Введите число.")
 
 
-def _parse_int(int_str: str, arg_name: str) -> int | None:
+def _parse_top(int_str: str) -> int | None:
     try:
         return int(int_str)
     except ValueError:
-        print(f"Неверное значение для параметра '{arg_name}'. Введите целое число.")
+        print("Неверное значение для параметра 'top'. Введите целое число.")
 
 
 def _parse_base(base_args: list[str]) -> str | None:
     match base_args:
-        case ["--base", base]:
+        case [Argument.BASE, base]:
             return base
         case []:
             return ""
@@ -146,22 +177,25 @@ def print_command_reference(command: str):
         print(f"Неизвестная команда: {command}")
         return
 
-    description, usage, args, example = COMMANDS_REFERENCE[Command(command)]
+    description, usage, args, examples = COMMANDS_REFERENCE[Command(command)]
 
     if description:
         print(f"\n{description}")
 
-    print("\nИспользование:\n")
-    print(f"   {command} {usage}")
+    if usage:
+        print("\nИспользование:\n")
+        for item in usage:
+            print(f"   {command} {item}")
 
     if args:
         print("\nПараметры:\n")
         for arg in args:
             print(f"   {arg}")
 
-    if example:
+    if examples:
         print("\nПример:\n")
-        print(f"   {command} {example}")
+        for example in examples:
+            print(f"   {command} {example}")
 
 
 def get_command() -> str:
@@ -194,33 +228,33 @@ def handle_command(command: str):
         parts = []
 
     match parts:
-        case ["register", "--username", username, "--password", password]:
-            register(username, password)
-        case ["login", "--username", username, "--password", password]:
-            login(username, password)
-        case ["show-portfolio", "--base", base_currency]:
+        case [Command.REGISTER, Argument.USERNAME, user, Argument.PASSWORD, password]:
+            register(user, password)
+        case [Command.LOGIN, Argument.USERNAME, user, Argument.PASSWORD, password]:
+            login(user, password)
+        case [Command.SHOW_PORTFOLIO, Argument.BASE, base_currency]:
             show_portfolio(base_currency)
-        case ["show-portfolio"]:
+        case [Command.SHOW_PORTFOLIO]:
             show_portfolio()
-        case ["buy", "--currency", currency, "--amount", amount_str]:
+        case [Command.BUY, Argument.CURRENCY, currency, Argument.AMOUNT, amount_str]:
             if (amount := _parse_amount(amount_str)) is not None:
                 buy(currency, amount)
-        case ["sell", "--currency", currency, "--amount", amount_str]:
+        case [Command.SELL, Argument.CURRENCY, currency, Argument.AMOUNT, amount_str]:
             if (amount := _parse_amount(amount_str)) is not None:
                 sell(currency, amount)
-        case ["get-rate", "--from", from_currency, "--to", to_currency]:
+        case [Command.GET_RATE, Argument.FROM, from_currency, Argument.TO, to_currency]:
             get_rate(from_currency, to_currency)
-        case [Command.UPDATE_RATES, "--source", source]:
+        case [Command.UPDATE_RATES, Argument.SOURCE, source]:
             update_rates(source)
         case [Command.UPDATE_RATES]:
             update_rates()
-        case [Command.SHOW_RATES as cmd, "--currency", currency, *base_args] if (
+        case [Command.SHOW_RATES as cmd, Argument.CURRENCY, currency, *base_args] if (
             base := _parse_base(base_args)
         ) is not None:
             show_rates(currency=currency, base_currency=base)
-        case [Command.SHOW_RATES as cmd, "--top", top, *base_args] if (
+        case [Command.SHOW_RATES as cmd, Argument.TOP, top, *base_args] if (
             base := _parse_base(base_args)
-        ) is not None and (top := _parse_int(top, "top")) is not None:
+        ) is not None and (top := _parse_top(top)) is not None:
             show_rates(top=top, base_currency=base)
         case [Command.SHOW_RATES as cmd, *base_args] if (
             base := _parse_base(base_args)
