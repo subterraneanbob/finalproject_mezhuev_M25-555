@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime
 from hashlib import sha256
 from os import urandom
@@ -6,25 +6,40 @@ from os import urandom
 from .exceptions import InvalidAmountError
 
 
-class AmountMaxWidth:
+class MaxWidth:
     """
-    Рассчитывает максимальную ширину отформатированного значения валюты для
-    вывода на экран.
+    Рассчитывает максимальную ширину отформатированного значения для вывода на экран
+    с использованием указанной функции преобразования значения в строку.
     """
 
-    def __init__(self, iterable: Iterable[float] | None = None):
+    def __init__(self, formatter: Callable, iterable: Iterable[float] | None = None):
         self.max_width = 0
+        self.formatter = formatter
 
         if iterable:
             for amount in iterable:
                 self.update(amount)
 
     def update(self, amount: float):
-        width = len(format_currency(amount))
+        width = len(self.formatter(amount))
         self.max_width = max(self.max_width, width)
 
     def __int__(self):
         return self.max_width
+
+
+def amount_max_width(iterable: Iterable[float] | None = None) -> MaxWidth:
+    """
+    Создаёт `MaxWidth` для денежных сумм.
+    """
+    return MaxWidth(format_currency, iterable)
+
+
+def rate_max_width(iterable: Iterable[float] | None = None) -> MaxWidth:
+    """
+    Создаёт `MaxWidth` для курса обмена валют.
+    """
+    return MaxWidth(format_exchange_rate, iterable)
 
 
 def get_hashed_password(password: str, salt: str) -> str:
@@ -74,17 +89,18 @@ def format_currency(
     return f"{amount:{width}.{decimal_places}f}"
 
 
-def format_exchange_rate(amount: float) -> str:
+def format_exchange_rate(amount: float, width: int = 0) -> str:
     """
     Форматирует значение курса обмена валюты.
 
     Args:
         amount (float): Значение курса обмена валюты.
+        width (int, optional): Общее количество символов.
 
     Returns:
         str: Отформатированная строка.
     """
-    return f"{amount:.6f}"
+    return f"{amount:{width}.6f}"
 
 
 def validate_amount(amount: float, attr_name: str = "amount"):
