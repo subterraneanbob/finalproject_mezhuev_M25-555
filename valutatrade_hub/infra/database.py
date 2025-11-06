@@ -1,5 +1,6 @@
 import json
 import os
+from tempfile import NamedTemporaryFile
 from typing import Any, Callable
 
 from .settings import Settings, SingletonMeta
@@ -48,7 +49,13 @@ class DatabaseManager(metaclass=SingletonMeta):
         except FileNotFoundError:
             return default_func()
 
-    def save(self, file_name: str, data, encode_func: Callable | None = None):
+    def save(
+        self,
+        file_name: str,
+        data,
+        encode_func: Callable | None = None,
+        use_temp_file: bool = False,
+    ):
         """
         Сохраняет объект в указанный файл, пользуясь указанной функцией `encode_func`
         для перевода объектов в словари для записи в формате JSON.
@@ -58,13 +65,17 @@ class DatabaseManager(metaclass=SingletonMeta):
             data: Объект или список объектов, которые требуется сохранить.
             encode_func (Callable, optional): Функция, которая преобразует
             переданный объект в словарь и возвращает его.
+            use_temp_file (bool, optional): Использовать временный файл для
+            сохранения объекта и последующего копирования в место назначения.
         """
         file_path = os.path.join(self.data_path, file_name)
-        with open(file_path, "w", encoding="utf-8") as json_file:
-            json.dump(
-                data,
-                json_file,
-                default=encode_func,
-                ensure_ascii=False,
-                indent=4,
-            )
+        args = {"default": encode_func, "ensure_ascii": False, "indent": 4}
+
+        if use_temp_file:
+            with NamedTemporaryFile("w", encoding="utf-8", delete=False) as temp_file:
+                json.dump(data, temp_file, **args)
+                temp_file_path = temp_file.name
+            os.replace(temp_file_path, file_path)
+        else:
+            with open(file_path, "w", encoding="utf-8") as json_file:
+                json.dump(data, json_file, **args)

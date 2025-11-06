@@ -65,4 +65,9 @@ class ExchangeRatesStorage:
         database = DatabaseManager()
         existing_rates = database.load(self.config.HISTORY_FILE, default_func=list)
         existing_rates.extend(rates)
-        database.save(self.config.HISTORY_FILE, existing_rates, encode_rates)
+        database.save(
+            self.config.HISTORY_FILE,
+            existing_rates,
+            encode_rates,
+            use_temp_file=True,
+        )
