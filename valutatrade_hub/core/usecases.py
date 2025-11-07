@@ -1,6 +1,4 @@
-import inspect
 from datetime import datetime, timedelta, timezone
-from functools import wraps
 from typing import Any
 
 from valutatrade_hub.decorators import log_action
@@ -11,7 +9,7 @@ from .currencies import (
     AVAILABLE_CURRENCIES,
     get_currency,
 )
-from .models import ExchangeRates, Portfolio, User, Wallet
+from .models import ExchangeRates, Portfolio, User, UserSession, Wallet
 from .utils import (
     amount_max_width,
     format_currency,
@@ -20,65 +18,6 @@ from .utils import (
     generate_salt,
     rate_max_width,
 )
-
-
-class UserSession:
-    """
-    Представляет сессию последнего пользователя, который успешно авторизовался
-    в системе.
-    """
-
-    _instance = None
-
-    def __new__(cls):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-            cls._instance._principal = None
-        return cls._instance
-
-    @classmethod
-    def authorize(cls, arg_name: str = "user"):
-        """
-        Декоратор, который требует наличие авторизованного пользователя для выполнения
-        декорируемой функции. Объект пользователя передаётся в функцию под указанным
-        именем.
-
-        Args:
-            arg_name (str): Название параметра, в котором будет передан объект
-            пользователя.
-        """
-
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                session = cls()
-                user = session.principal
-
-                if arg_name in inspect.signature(func).parameters:
-                    kwargs[arg_name] = user
-
-                if user:
-                    return func(*args, **kwargs)
-                else:
-                    print("Сначала выполните login.")
-
-            return wrapper
-
-        return decorator
-
-    def authenticate(self, user: User):
-        """
-        Запоминает пользователя, который авторизовался.
-        """
-        self._principal = user
-
-    @property
-    def principal(self) -> User | None:
-        """
-        User or None: Возвращает пользователя, который авторизовался, или None,
-        если никто ещё не проходил авторизацию.
-        """
-        return self._principal
 
 
 def _deposit_base_currency(wallet: Wallet, amount: float) -> tuple[float, float]:

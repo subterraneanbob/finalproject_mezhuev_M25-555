@@ -1,7 +1,9 @@
+import inspect
 from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import wraps
 from typing import Self
 
 from valutatrade_hub.infra import DatabaseManager
@@ -189,6 +191,65 @@ class User:
             bool: True, если пароль верный, иначе False.
         """
         return self._hashed_password == get_hashed_password(password, self._salt)
+
+
+class UserSession:
+    """
+    Представляет сессию последнего пользователя, который успешно авторизовался
+    в системе.
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance._principal = None
+        return cls._instance
+
+    @classmethod
+    def authorize(cls, arg_name: str = "user"):
+        """
+        Декоратор, который требует наличие авторизованного пользователя для выполнения
+        декорируемой функции. Объект пользователя передаётся в функцию под указанным
+        именем.
+
+        Args:
+            arg_name (str): Название параметра, в котором будет передан объект
+            пользователя.
+        """
+
+        def decorator(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                session = cls()
+                user = session.principal
+
+                if arg_name in inspect.signature(func).parameters:
+                    kwargs[arg_name] = user
+
+                if user:
+                    return func(*args, **kwargs)
+                else:
+                    print("Сначала выполните login.")
+
+            return wrapper
+
+        return decorator
+
+    def authenticate(self, user: User):
+        """
+        Запоминает пользователя, который авторизовался.
+        """
+        self._principal = user
+
+    @property
+    def principal(self) -> User | None:
+        """
+        User or None: Возвращает пользователя, который авторизовался, или None,
+        если никто ещё не проходил авторизацию.
+        """
+        return self._principal
 
 
 class Wallet:
@@ -555,7 +616,7 @@ class Portfolio:
         self._wallets.setdefault(currency_code, new_wallet)
 
     def get_total_value(
-        self, exchange_rates: ExchangeRates, base_currency: str
+        self, exchange_rates: ExchangeRates, base_currency: str = "USD"
     ) -> float:
         """
         Подсчитывает полную стоимость портфеля в указанной базовой валюте с
