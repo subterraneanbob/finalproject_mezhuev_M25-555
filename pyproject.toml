@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "finalproject-mezhuev-m25-555"
-version = "0.1.0"
+version = "1.0.0"
 description = ""
 authors = ["Pavel Mezhuev <mp710@ya.ru>"]
 readme = "README.md"
